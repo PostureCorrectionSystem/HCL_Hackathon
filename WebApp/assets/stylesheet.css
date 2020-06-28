@@ -1,0 +1,28 @@
+.banner{
+    height: 75px;
+    margin: 0px -10px 10px;
+    background-color: rgb(220,220,220);
+    border-radius: 2px;
+}
+
+.banner h2{
+    color: rgb(89,89,89);
+    padding-top: 10px;
+    margin-left: 15px;
+    display: inline-block;
+    font-family: Charcoal, sans-serif;
+}
+
+.banner Img{
+    position: relative;
+    float: right;
+    right: 10px;
+    height: 75px;
+    margin-right: 15px;
+}
+
+.figure{
+
+    padding-top: 50px;
+    margin-right:500px;
+}
