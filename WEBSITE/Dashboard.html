@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="img/favicon.png" type="image/png">
+    <title>Dashboard</title>
+
+    <style>
+        .frame {
+  fill: none;
+  stroke: #000;
+}
+
+.axis text {
+  font: 10px sans-serif;
+}
+
+.axis line,
+.axis circle {
+  fill: none;
+  stroke: #777;
+  stroke-dasharray: 1,4;
+}
+
+.axis :last-of-type circle {
+  stroke: #333;
+  stroke-dasharray: none;
+}
+
+.line {
+  fill: none;
+  stroke: red;
+  stroke-width: 1.5px;
+}
+    </style>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="css/bootstrap.css">
+    <link rel="stylesheet" href="css/themify-icons.css">
+
+    <!-- main css -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <!-- <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-analytics.js"></script>
+    <script src="js/graph.js"></script> -->
+    <script src = "https://d3js.org/d3.v4.min.js"></script>
+</head>
+<body>
+
+    <!--================Header Menu Area =================-->
+    <header class="header_area">
+        <div class="main_menu">
+            <nav class="navbar navbar-expand-lg navbar-light">
+                <div class="container">
+                    <!-- Brand and toggle get grouped for better mobile display -->
+                    <h1 style="color:whitesmoke;font-size: 40px"><a href ="index.html" style="color:whitesmoke">Posture Correction System</a></h1>
+                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <!-- Collect the nav links, forms, and other content for toggling -->
+                    <div class="collapse navbar-collapse offset" id="navbarSupportedContent">
+                        <ul class="nav navbar-nav menu_nav ml-auto">
+                            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+
+                            <li class="nav-item"><a class="nav-link" href="contact.html">Contact Us</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+    <!--================Header Menu Area =================-->
+
+
+    <!--================Hero Banner Area Start =================-->
+    <section class="hero-banner d-flex align-items-center">
+        <div class="container text-center">
+            <h2>Your Dashboard<br></h2>
+            <h3>You can lean on us </h3><br><br>
+            <button type="button">Toggle ON/OFF</button>
+        </div>
+
+    </section>
+    <!--================Hero Banner Area End =================-->
+<!-- Graph goes here -->
+<div id ="svgcontainer"></div>
+
+</div>
+
+    <!--================Blog Area =================-->
+</body>
+<script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-analytics.js"></script>
+<script>
+  // Your web app's Firebase configuration
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyAeR2pOelBp7gP2yjbGigYechQTdMSAfeM",
+    authDomain: "hcl-hack.firebaseapp.com",
+    databaseURL: "https://hcl-hack.firebaseio.com",
+    projectId: "hcl-hack",
+    storageBucket: "hcl-hack.appspot.com",
+    messagingSenderId: "296548261590",
+    appId: "1:296548261590:web:b8e2cc0af33216688ff377",
+    measurementId: "G-TZHNVFQ4KR"
+  };
+  firebase.initializeApp(firebaseConfig);
+  firebase.analytics();
+
+  window.addEventListener("load",loadGraph)
+  function loadGraph(){
+      createGraph()
+  }
+
+  function UpdateGraph(){
+      var elem = document.getElementsByTagName('svg')[0];
+      elem.parentNode.removeChild(elem);
+      createGraph();
+      console.log("Called")
+    }
+
+    setInterval(UpdateGraph, 20);
+</script>
+<script src="js/plot.js"></script>
+
+
+
+</html>
