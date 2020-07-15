@@ -306,7 +306,7 @@ function getAngle(a,b,c){
  * Feeds an image to posenet to estimate poses - this is where the magic
  * happens. This function loops with a requestAnimationFrame method.
  */
-function detectPoseInRealTime(video, net) {
+function detectPoseInRealTime(video, net,val) {
   const canvas = document.getElementById('output');
   const ctx = canvas.getContext('2d');
 
@@ -448,8 +448,13 @@ function detectPoseInRealTime(video, net) {
           let NLS = getDistance(keypoints[0]["position"],keypoints[5]["position"]) // nose to left shoulder
           let NRS = getDistance(keypoints[0]["position"],keypoints[6]["position"]) // nose to right shoulder
           let SD =  getDistance(keypoints[5]["position"],keypoints[6]["position"]) // distance between shoulders
-          console.log(getAngle(NLS,NRS,SD)) // returns angle in degrees
-
+          let angle = getAngle(NLS,NRS,SD) // returns angle in degrees
+          if(Math.abs(angle-val)>10){
+            console.log("Sit properly!!")
+          }
+          else{
+            console.log("Continue!")
+          }
 
         // if (guiState.output.showPoints) {
         //   drawKeypoints(keypoints, minPartConfidence, ctx);
@@ -470,6 +475,203 @@ function detectPoseInRealTime(video, net) {
   }
 
   poseDetectionFrame();
+  
+}
+
+async function getThreshold(video,net){
+
+//to ensure he is sitting in his/her usual posture
+let seatingStatus = false;
+while(!seatingStatus){
+  let seatingResponse = prompt("Are u sitting properly? yes/no")
+  if(seatingResponse=="yes")
+    seatingStatus = true;
+}
+
+
+  const canvas = document.getElementById('output');
+  const ctx = canvas.getContext('2d');
+
+  // since images are being fed from a webcam, we want to feed in the
+  // original image and then just flip the keypoints' x coordinates. If instead
+  // we flip the image, then correcting left-right keypoint pairs requires a
+  // permutation on all the keypoints.
+  const flipPoseHorizontal = true;
+
+  canvas.width = videoWidth;
+  canvas.height = videoHeight;
+  
+
+  async function poseDetectionFrame() {
+    if (guiState.changeToArchitecture) {
+      // Important to purge variables and free up GPU memory
+      guiState.net.dispose();
+      toggleLoadingUI(true);
+      guiState.net = await posenet.load({
+        architecture: guiState.changeToArchitecture,
+        outputStride: guiState.outputStride,
+        inputResolution: guiState.inputResolution,
+        multiplier: guiState.multiplier,
+      });
+      toggleLoadingUI(false);
+      guiState.architecture = guiState.changeToArchitecture;
+      guiState.changeToArchitecture = null;
+    }
+
+    if (guiState.changeToMultiplier) {
+      guiState.net.dispose();
+      toggleLoadingUI(true);
+      guiState.net = await posenet.load({
+        architecture: guiState.architecture,
+        outputStride: guiState.outputStride,
+        inputResolution: guiState.inputResolution,
+        multiplier: +guiState.changeToMultiplier,
+        quantBytes: guiState.quantBytes
+      });
+      toggleLoadingUI(false);
+      guiState.multiplier = +guiState.changeToMultiplier;
+      guiState.changeToMultiplier = null;
+    }
+
+    if (guiState.changeToOutputStride) {
+      // Important to purge variables and free up GPU memory
+      guiState.net.dispose();
+      toggleLoadingUI(true);
+      guiState.net = await posenet.load({
+        architecture: guiState.architecture,
+        outputStride: +guiState.changeToOutputStride,
+        inputResolution: guiState.inputResolution,
+        multiplier: guiState.multiplier,
+        quantBytes: guiState.quantBytes
+      });
+      toggleLoadingUI(false);
+      guiState.outputStride = +guiState.changeToOutputStride;
+      guiState.changeToOutputStride = null;
+    }
+
+    if (guiState.changeToInputResolution) {
+      // Important to purge variables and free up GPU memory
+      guiState.net.dispose();
+      toggleLoadingUI(true);
+      guiState.net = await posenet.load({
+        architecture: guiState.architecture,
+        outputStride: guiState.outputStride,
+        inputResolution: +guiState.changeToInputResolution,
+        multiplier: guiState.multiplier,
+        quantBytes: guiState.quantBytes
+      });
+      toggleLoadingUI(false);
+      guiState.inputResolution = +guiState.changeToInputResolution;
+      guiState.changeToInputResolution = null;
+    }
+
+    if (guiState.changeToQuantBytes) {
+      // Important to purge variables and free up GPU memory
+      guiState.net.dispose();
+      toggleLoadingUI(true);
+      guiState.net = await posenet.load({
+        architecture: guiState.architecture,
+        outputStride: guiState.outputStride,
+        inputResolution: guiState.inputResolution,
+        multiplier: guiState.multiplier,
+        quantBytes: guiState.changeToQuantBytes
+      });
+      toggleLoadingUI(false);
+      guiState.quantBytes = guiState.changeToQuantBytes;
+      guiState.changeToQuantBytes = null;
+    }
+
+    // Begin monitoring code for frames per second
+    stats.begin();
+
+    let poses = [];
+    let minPoseConfidence;
+    let minPartConfidence;
+    switch (guiState.algorithm) {
+      case 'single-pose':
+        const pose = await guiState.net.estimatePoses(video, {
+          flipHorizontal: flipPoseHorizontal,
+          decodingMethod: 'single-person'
+        });
+        poses = poses.concat(pose);
+        minPoseConfidence = +guiState.singlePoseDetection.minPoseConfidence;
+        minPartConfidence = +guiState.singlePoseDetection.minPartConfidence;
+        break;
+      case 'multi-pose':
+        let all_poses = await guiState.net.estimatePoses(video, {
+          flipHorizontal: flipPoseHorizontal,
+          decodingMethod: 'multi-person',
+          maxDetections: guiState.multiPoseDetection.maxPoseDetections,
+          scoreThreshold: guiState.multiPoseDetection.minPartConfidence,
+          nmsRadius: guiState.multiPoseDetection.nmsRadius
+        });
+
+        poses = poses.concat(all_poses);
+        minPoseConfidence = +guiState.multiPoseDetection.minPoseConfidence;
+        minPartConfidence = +guiState.multiPoseDetection.minPartConfidence;
+        break;
+    }
+
+    ctx.clearRect(0, 0, videoWidth, videoHeight);
+
+    if (guiState.output.showVideo) {
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.translate(-videoWidth, 0);
+      ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+      ctx.restore();
+    }
+    // console.log(poses)
+    // For each pose (i.e. person) detected in an image, loop through the poses
+    // and draw the resulting skeleton and keypoints if over certain confidence
+    // scores
+
+    var angles = Array();
+    // console.log("Calculating threshold")
+    poses.forEach(({score, keypoints}) => {
+      if (score >= minPoseConfidence) {
+
+          let NLS = getDistance(keypoints[0]["position"],keypoints[5]["position"]) // nose to left shoulder
+          let NRS = getDistance(keypoints[0]["position"],keypoints[6]["position"]) // nose to right shoulder
+          let SD =  getDistance(keypoints[5]["position"],keypoints[6]["position"]) // distance between shoulders
+          let angle = getAngle(NLS,NRS,SD) // returns angle in degrees
+          
+          // check this
+          // console.log(angles.length)
+          if (angles.length<10){
+            angles.push(angle)
+          }
+
+        // if (guiState.output.showPoints) {
+        //   drawKeypoints(keypoints, minPartConfidence, ctx);
+        // }
+        // if (guiState.output.showSkeleton) {
+        //   drawSkeleton(keypoints, minPartConfidence, ctx);
+        // }
+        // if (guiState.output.showBoundingBox) {
+        //   drawBoundingBox(keypoints, ctx);
+        // }
+      }
+    });
+
+    // End monitoring code for frames per second
+    stats.end();
+    // requestAnimationFrame(poseDetectionFrame);
+    // console.log("Returning the promise")
+    return Promise.resolve(angles);
+     //window.requestAnimationFrame ;is a function that is related to the browser
+  }
+  
+  // console.log("Angles length:",angles.length)
+  
+      //recursive function
+      // console.log("Inside for");
+      let angles = await poseDetectionFrame();
+      // console.log("Received the promise");
+      // console.log(angles)
+      return Promise.resolve(angles);
+
+  
 }
 
 /**
@@ -501,10 +703,16 @@ export async function bindPage() {
 
   setupGui([], net);
   setupFPS();
-  detectPoseInRealTime(video, net);
+  let angle = getThreshold(video,net);
+  angle.then((val)=>{
+    console.log("Handling promise:",val);
+    detectPoseInRealTime(video, net,val[0]);
+  })
+  
 }
 
 navigator.getUserMedia = navigator.getUserMedia ||
     navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 // kick off the demo
+console.log("Calling bind page")
 bindPage();
