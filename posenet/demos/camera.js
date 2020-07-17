@@ -302,6 +302,7 @@ function getAngle(a,b,c){
   return toDegrees(Math.acos(num/den));
 }
 
+
 /**
  * Feeds an image to posenet to estimate poses - this is where the magic
  * happens. This function loops with a requestAnimationFrame method.
@@ -449,6 +450,7 @@ function detectPoseInRealTime(video, net,val) {
           let NRS = getDistance(keypoints[0]["position"],keypoints[6]["position"]) // nose to right shoulder
           let SD =  getDistance(keypoints[5]["position"],keypoints[6]["position"]) // distance between shoulders
           let angle = getAngle(NLS,NRS,SD) // returns angle in degrees
+          console.log("Angle:",angle,"Threshold",val)
           if(Math.abs(angle-val)>10){
             console.log("Sit properly!!")
           }
@@ -500,7 +502,8 @@ while(!seatingStatus){
 
   canvas.width = videoWidth;
   canvas.height = videoHeight;
-  
+  var allAngles = Array();
+  var finalThreshold = Array();
 
   async function poseDetectionFrame() {
     if (guiState.changeToArchitecture) {
@@ -625,23 +628,18 @@ while(!seatingStatus){
     // For each pose (i.e. person) detected in an image, loop through the poses
     // and draw the resulting skeleton and keypoints if over certain confidence
     // scores
-
-    var angles = Array();
-    // console.log("Calculating threshold")
+    var angle;
     poses.forEach(({score, keypoints}) => {
       if (score >= minPoseConfidence) {
 
           let NLS = getDistance(keypoints[0]["position"],keypoints[5]["position"]) // nose to left shoulder
           let NRS = getDistance(keypoints[0]["position"],keypoints[6]["position"]) // nose to right shoulder
           let SD =  getDistance(keypoints[5]["position"],keypoints[6]["position"]) // distance between shoulders
-          let angle = getAngle(NLS,NRS,SD) // returns angle in degrees
-          
+          let value = getAngle(NLS,NRS,SD) // returns angle in degrees
           // check this
           // console.log(angles.length)
-          if (angles.length<10){
-            angles.push(angle)
-          }
-
+            angle=value
+    
         // if (guiState.output.showPoints) {
         //   drawKeypoints(keypoints, minPartConfidence, ctx);
         // }
@@ -653,24 +651,31 @@ while(!seatingStatus){
         // }
       }
     });
-
-    // End monitoring code for frames per second
     stats.end();
-    // requestAnimationFrame(poseDetectionFrame);
-    // console.log("Returning the promise")
-    return Promise.resolve(angles);
-     //window.requestAnimationFrame ;is a function that is related to the browser
+    return angle;
+    
   }
-  
-  // console.log("Angles length:",angles.length)
-  
-      //recursive function
-      // console.log("Inside for");
-      let angles = await poseDetectionFrame();
-      // console.log("Received the promise");
-      // console.log(angles)
-      return Promise.resolve(angles);
-
+        
+    
+  for(var i=0;i<120;++i){
+        let angle = poseDetectionFrame()
+        angle.then((value)=>allAngles.push(value))
+        // allAngles.push(Promise.resolve(angle))
+      }
+      
+  setTimeout(()=>{
+        console.log("All angles are:",allAngles)
+        let total = 0;
+        for(var i=0;i<allAngles.length;++i){
+          total+=allAngles[i];
+        }
+        console.log("Length of array",allAngles.length);
+         let threshold = total/allAngles.length;
+         finalThreshold.push(threshold)
+        // console.log("inside timeout value:",finalThreshold);
+    },5000);
+    console.log("Outside ,the final threshold is:",finalThreshold);
+    return finalThreshold;   
   
 }
 
@@ -703,11 +708,10 @@ export async function bindPage() {
 
   setupGui([], net);
   setupFPS();
-  let angle = getThreshold(video,net);
-  angle.then((val)=>{
-    console.log("Handling promise:",val);
-    detectPoseInRealTime(video, net,val[0]);
-  })
+  let angle = getThreshold(video,net); 
+  // console.log("Angle is",angle)
+  console.log(angle);
+  angle.then((val)=>{detectPoseInRealTime(video,net,val)}).catch(e=>console.log(e))   
   
 }
 
