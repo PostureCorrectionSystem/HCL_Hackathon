@@ -19577,7 +19577,581 @@ function ep() {
 }
 
 ft = Rh;
-},{"crypto":"node_modules/parcel-bundler/src/builtins/_empty.js","node-fetch":"node_modules/parcel-bundler/src/builtins/_empty.js","util":"node_modules/parcel-bundler/src/builtins/_empty.js","process":"node_modules/process/browser.js","buffer":"node_modules/buffer/index.js"}],"node_modules/@tensorflow/tfjs-converter/dist/tf-converter.esm.js":[function(require,module,exports) {
+},{"crypto":"node_modules/parcel-bundler/src/builtins/_empty.js","node-fetch":"node_modules/parcel-bundler/src/builtins/_empty.js","util":"node_modules/parcel-bundler/src/builtins/_empty.js","process":"node_modules/process/browser.js","buffer":"node_modules/buffer/index.js"}],"node_modules/@tensorflow-models/posenet/dist/base_model.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var tf = require("@tensorflow/tfjs-core");
+var BaseModel = (function () {
+    function BaseModel(model, outputStride) {
+        this.model = model;
+        this.outputStride = outputStride;
+        var inputShape = this.model.inputs[0].shape;
+        tf.util.assert((inputShape[1] === -1) && (inputShape[2] === -1), function () { return "Input shape [" + inputShape[1] + ", " + inputShape[2] + "] " +
+            "must both be equal to or -1"; });
+    }
+    BaseModel.prototype.predict = function (input) {
+        var _this = this;
+        return tf.tidy(function () {
+            var asFloat = _this.preprocessInput(input.toFloat());
+            var asBatch = asFloat.expandDims(0);
+            var results = _this.model.predict(asBatch);
+            var results3d = results.map(function (y) { return y.squeeze([0]); });
+            var namedResults = _this.nameOutputResults(results3d);
+            return {
+                heatmapScores: namedResults.heatmap.sigmoid(),
+                offsets: namedResults.offsets,
+                displacementFwd: namedResults.displacementFwd,
+                displacementBwd: namedResults.displacementBwd
+            };
+        });
+    };
+    BaseModel.prototype.dispose = function () {
+        this.model.dispose();
+    };
+    return BaseModel;
+}());
+exports.BaseModel = BaseModel;
+
+},{"@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js"}],"node_modules/@tensorflow-models/posenet/dist/mobilenet.js":[function(require,module,exports) {
+"use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var tf = require("@tensorflow/tfjs-core");
+var base_model_1 = require("./base_model");
+var MobileNet = (function (_super) {
+    __extends(MobileNet, _super);
+    function MobileNet() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    MobileNet.prototype.preprocessInput = function (input) {
+        return tf.tidy(function () { return tf.div(input, 127.5).sub(1.0); });
+    };
+    MobileNet.prototype.nameOutputResults = function (results) {
+        var offsets = results[0], heatmap = results[1], displacementFwd = results[2], displacementBwd = results[3];
+        return { offsets: offsets, heatmap: heatmap, displacementFwd: displacementFwd, displacementBwd: displacementBwd };
+    };
+    return MobileNet;
+}(base_model_1.BaseModel));
+exports.MobileNet = MobileNet;
+
+},{"@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js","./base_model":"node_modules/@tensorflow-models/posenet/dist/base_model.js"}],"node_modules/@tensorflow-models/posenet/dist/multi_pose/max_heap.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+function half(k) {
+    return Math.floor(k / 2);
+}
+var MaxHeap = (function () {
+    function MaxHeap(maxSize, getElementValue) {
+        this.priorityQueue = new Array(maxSize);
+        this.numberOfElements = -1;
+        this.getElementValue = getElementValue;
+    }
+    MaxHeap.prototype.enqueue = function (x) {
+        this.priorityQueue[++this.numberOfElements] = x;
+        this.swim(this.numberOfElements);
+    };
+    MaxHeap.prototype.dequeue = function () {
+        var max = this.priorityQueue[0];
+        this.exchange(0, this.numberOfElements--);
+        this.sink(0);
+        this.priorityQueue[this.numberOfElements + 1] = null;
+        return max;
+    };
+    MaxHeap.prototype.empty = function () {
+        return this.numberOfElements === -1;
+    };
+    MaxHeap.prototype.size = function () {
+        return this.numberOfElements + 1;
+    };
+    MaxHeap.prototype.all = function () {
+        return this.priorityQueue.slice(0, this.numberOfElements + 1);
+    };
+    MaxHeap.prototype.max = function () {
+        return this.priorityQueue[0];
+    };
+    MaxHeap.prototype.swim = function (k) {
+        while (k > 0 && this.less(half(k), k)) {
+            this.exchange(k, half(k));
+            k = half(k);
+        }
+    };
+    MaxHeap.prototype.sink = function (k) {
+        while (2 * k <= this.numberOfElements) {
+            var j = 2 * k;
+            if (j < this.numberOfElements && this.less(j, j + 1)) {
+                j++;
+            }
+            if (!this.less(k, j)) {
+                break;
+            }
+            this.exchange(k, j);
+            k = j;
+        }
+    };
+    MaxHeap.prototype.getValueAt = function (i) {
+        return this.getElementValue(this.priorityQueue[i]);
+    };
+    MaxHeap.prototype.less = function (i, j) {
+        return this.getValueAt(i) < this.getValueAt(j);
+    };
+    MaxHeap.prototype.exchange = function (i, j) {
+        var t = this.priorityQueue[i];
+        this.priorityQueue[i] = this.priorityQueue[j];
+        this.priorityQueue[j] = t;
+    };
+    return MaxHeap;
+}());
+exports.MaxHeap = MaxHeap;
+
+},{}],"node_modules/@tensorflow-models/posenet/dist/multi_pose/build_part_with_score_queue.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var max_heap_1 = require("./max_heap");
+function scoreIsMaximumInLocalWindow(keypointId, score, heatmapY, heatmapX, localMaximumRadius, scores) {
+    var _a = scores.shape, height = _a[0], width = _a[1];
+    var localMaximum = true;
+    var yStart = Math.max(heatmapY - localMaximumRadius, 0);
+    var yEnd = Math.min(heatmapY + localMaximumRadius + 1, height);
+    for (var yCurrent = yStart; yCurrent < yEnd; ++yCurrent) {
+        var xStart = Math.max(heatmapX - localMaximumRadius, 0);
+        var xEnd = Math.min(heatmapX + localMaximumRadius + 1, width);
+        for (var xCurrent = xStart; xCurrent < xEnd; ++xCurrent) {
+            if (scores.get(yCurrent, xCurrent, keypointId) > score) {
+                localMaximum = false;
+                break;
+            }
+        }
+        if (!localMaximum) {
+            break;
+        }
+    }
+    return localMaximum;
+}
+function buildPartWithScoreQueue(scoreThreshold, localMaximumRadius, scores) {
+    var _a = scores.shape, height = _a[0], width = _a[1], numKeypoints = _a[2];
+    var queue = new max_heap_1.MaxHeap(height * width * numKeypoints, function (_a) {
+        var score = _a.score;
+        return score;
+    });
+    for (var heatmapY = 0; heatmapY < height; ++heatmapY) {
+        for (var heatmapX = 0; heatmapX < width; ++heatmapX) {
+            for (var keypointId = 0; keypointId < numKeypoints; ++keypointId) {
+                var score = scores.get(heatmapY, heatmapX, keypointId);
+                if (score < scoreThreshold) {
+                    continue;
+                }
+                if (scoreIsMaximumInLocalWindow(keypointId, score, heatmapY, heatmapX, localMaximumRadius, scores)) {
+                    queue.enqueue({ score: score, part: { heatmapY: heatmapY, heatmapX: heatmapX, id: keypointId } });
+                }
+            }
+        }
+    }
+    return queue;
+}
+exports.buildPartWithScoreQueue = buildPartWithScoreQueue;
+
+},{"./max_heap":"node_modules/@tensorflow-models/posenet/dist/multi_pose/max_heap.js"}],"node_modules/@tensorflow-models/posenet/dist/keypoints.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.partNames = [
+    'nose', 'leftEye', 'rightEye', 'leftEar', 'rightEar', 'leftShoulder',
+    'rightShoulder', 'leftElbow', 'rightElbow', 'leftWrist', 'rightWrist',
+    'leftHip', 'rightHip', 'leftKnee', 'rightKnee', 'leftAnkle', 'rightAnkle'
+];
+exports.NUM_KEYPOINTS = exports.partNames.length;
+exports.partIds = exports.partNames.reduce(function (result, jointName, i) {
+    result[jointName] = i;
+    return result;
+}, {});
+var connectedPartNames = [
+    ['leftHip', 'leftShoulder'], ['leftElbow', 'leftShoulder'],
+    ['leftElbow', 'leftWrist'], ['leftHip', 'leftKnee'],
+    ['leftKnee', 'leftAnkle'], ['rightHip', 'rightShoulder'],
+    ['rightElbow', 'rightShoulder'], ['rightElbow', 'rightWrist'],
+    ['rightHip', 'rightKnee'], ['rightKnee', 'rightAnkle'],
+    ['leftShoulder', 'rightShoulder'], ['leftHip', 'rightHip']
+];
+exports.poseChain = [
+    ['nose', 'leftEye'], ['leftEye', 'leftEar'], ['nose', 'rightEye'],
+    ['rightEye', 'rightEar'], ['nose', 'leftShoulder'],
+    ['leftShoulder', 'leftElbow'], ['leftElbow', 'leftWrist'],
+    ['leftShoulder', 'leftHip'], ['leftHip', 'leftKnee'],
+    ['leftKnee', 'leftAnkle'], ['nose', 'rightShoulder'],
+    ['rightShoulder', 'rightElbow'], ['rightElbow', 'rightWrist'],
+    ['rightShoulder', 'rightHip'], ['rightHip', 'rightKnee'],
+    ['rightKnee', 'rightAnkle']
+];
+exports.connectedPartIndices = connectedPartNames.map(function (_a) {
+    var jointNameA = _a[0], jointNameB = _a[1];
+    return ([exports.partIds[jointNameA], exports.partIds[jointNameB]]);
+});
+exports.partChannels = [
+    'left_face',
+    'right_face',
+    'right_upper_leg_front',
+    'right_lower_leg_back',
+    'right_upper_leg_back',
+    'left_lower_leg_front',
+    'left_upper_leg_front',
+    'left_upper_leg_back',
+    'left_lower_leg_back',
+    'right_feet',
+    'right_lower_leg_front',
+    'left_feet',
+    'torso_front',
+    'torso_back',
+    'right_upper_arm_front',
+    'right_upper_arm_back',
+    'right_lower_arm_back',
+    'left_lower_arm_front',
+    'left_upper_arm_front',
+    'left_upper_arm_back',
+    'left_lower_arm_back',
+    'right_hand',
+    'right_lower_arm_front',
+    'left_hand'
+];
+
+},{}],"node_modules/@tensorflow-models/posenet/dist/multi_pose/util.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var keypoints_1 = require("../keypoints");
+function getOffsetPoint(y, x, keypoint, offsets) {
+    return {
+        y: offsets.get(y, x, keypoint),
+        x: offsets.get(y, x, keypoint + keypoints_1.NUM_KEYPOINTS)
+    };
+}
+exports.getOffsetPoint = getOffsetPoint;
+function getImageCoords(part, outputStride, offsets) {
+    var heatmapY = part.heatmapY, heatmapX = part.heatmapX, keypoint = part.id;
+    var _a = getOffsetPoint(heatmapY, heatmapX, keypoint, offsets), y = _a.y, x = _a.x;
+    return {
+        x: part.heatmapX * outputStride + x,
+        y: part.heatmapY * outputStride + y
+    };
+}
+exports.getImageCoords = getImageCoords;
+function fillArray(element, size) {
+    var result = new Array(size);
+    for (var i = 0; i < size; i++) {
+        result[i] = element;
+    }
+    return result;
+}
+exports.fillArray = fillArray;
+function clamp(a, min, max) {
+    if (a < min) {
+        return min;
+    }
+    if (a > max) {
+        return max;
+    }
+    return a;
+}
+exports.clamp = clamp;
+function squaredDistance(y1, x1, y2, x2) {
+    var dy = y2 - y1;
+    var dx = x2 - x1;
+    return dy * dy + dx * dx;
+}
+exports.squaredDistance = squaredDistance;
+function addVectors(a, b) {
+    return { x: a.x + b.x, y: a.y + b.y };
+}
+exports.addVectors = addVectors;
+function clampVector(a, min, max) {
+    return { y: clamp(a.y, min, max), x: clamp(a.x, min, max) };
+}
+exports.clampVector = clampVector;
+
+},{"../keypoints":"node_modules/@tensorflow-models/posenet/dist/keypoints.js"}],"node_modules/@tensorflow-models/posenet/dist/multi_pose/decode_pose.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var keypoints_1 = require("../keypoints");
+var util_1 = require("./util");
+var util_2 = require("./util");
+var parentChildrenTuples = keypoints_1.poseChain.map(function (_a) {
+    var parentJoinName = _a[0], childJoinName = _a[1];
+    return ([keypoints_1.partIds[parentJoinName], keypoints_1.partIds[childJoinName]]);
+});
+var parentToChildEdges = parentChildrenTuples.map(function (_a) {
+    var childJointId = _a[1];
+    return childJointId;
+});
+var childToParentEdges = parentChildrenTuples.map(function (_a) {
+    var parentJointId = _a[0];
+    return parentJointId;
+});
+function getDisplacement(edgeId, point, displacements) {
+    var numEdges = displacements.shape[2] / 2;
+    return {
+        y: displacements.get(point.y, point.x, edgeId),
+        x: displacements.get(point.y, point.x, numEdges + edgeId)
+    };
+}
+function getStridedIndexNearPoint(point, outputStride, height, width) {
+    return {
+        y: util_1.clamp(Math.round(point.y / outputStride), 0, height - 1),
+        x: util_1.clamp(Math.round(point.x / outputStride), 0, width - 1)
+    };
+}
+function traverseToTargetKeypoint(edgeId, sourceKeypoint, targetKeypointId, scoresBuffer, offsets, outputStride, displacements, offsetRefineStep) {
+    if (offsetRefineStep === void 0) { offsetRefineStep = 2; }
+    var _a = scoresBuffer.shape, height = _a[0], width = _a[1];
+    var sourceKeypointIndices = getStridedIndexNearPoint(sourceKeypoint.position, outputStride, height, width);
+    var displacement = getDisplacement(edgeId, sourceKeypointIndices, displacements);
+    var displacedPoint = util_2.addVectors(sourceKeypoint.position, displacement);
+    var targetKeypoint = displacedPoint;
+    for (var i = 0; i < offsetRefineStep; i++) {
+        var targetKeypointIndices = getStridedIndexNearPoint(targetKeypoint, outputStride, height, width);
+        var offsetPoint = util_1.getOffsetPoint(targetKeypointIndices.y, targetKeypointIndices.x, targetKeypointId, offsets);
+        targetKeypoint = util_2.addVectors({
+            x: targetKeypointIndices.x * outputStride,
+            y: targetKeypointIndices.y * outputStride
+        }, { x: offsetPoint.x, y: offsetPoint.y });
+    }
+    var targetKeyPointIndices = getStridedIndexNearPoint(targetKeypoint, outputStride, height, width);
+    var score = scoresBuffer.get(targetKeyPointIndices.y, targetKeyPointIndices.x, targetKeypointId);
+    return { position: targetKeypoint, part: keypoints_1.partNames[targetKeypointId], score: score };
+}
+function decodePose(root, scores, offsets, outputStride, displacementsFwd, displacementsBwd) {
+    var numParts = scores.shape[2];
+    var numEdges = parentToChildEdges.length;
+    var instanceKeypoints = new Array(numParts);
+    var rootPart = root.part, rootScore = root.score;
+    var rootPoint = util_2.getImageCoords(rootPart, outputStride, offsets);
+    instanceKeypoints[rootPart.id] = {
+        score: rootScore,
+        part: keypoints_1.partNames[rootPart.id],
+        position: rootPoint
+    };
+    for (var edge = numEdges - 1; edge >= 0; --edge) {
+        var sourceKeypointId = parentToChildEdges[edge];
+        var targetKeypointId = childToParentEdges[edge];
+        if (instanceKeypoints[sourceKeypointId] &&
+            !instanceKeypoints[targetKeypointId]) {
+            instanceKeypoints[targetKeypointId] = traverseToTargetKeypoint(edge, instanceKeypoints[sourceKeypointId], targetKeypointId, scores, offsets, outputStride, displacementsBwd);
+        }
+    }
+    for (var edge = 0; edge < numEdges; ++edge) {
+        var sourceKeypointId = childToParentEdges[edge];
+        var targetKeypointId = parentToChildEdges[edge];
+        if (instanceKeypoints[sourceKeypointId] &&
+            !instanceKeypoints[targetKeypointId]) {
+            instanceKeypoints[targetKeypointId] = traverseToTargetKeypoint(edge, instanceKeypoints[sourceKeypointId], targetKeypointId, scores, offsets, outputStride, displacementsFwd);
+        }
+    }
+    return instanceKeypoints;
+}
+exports.decodePose = decodePose;
+
+},{"../keypoints":"node_modules/@tensorflow-models/posenet/dist/keypoints.js","./util":"node_modules/@tensorflow-models/posenet/dist/multi_pose/util.js"}],"node_modules/@tensorflow-models/posenet/dist/multi_pose/decode_multiple_poses.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var build_part_with_score_queue_1 = require("./build_part_with_score_queue");
+var decode_pose_1 = require("./decode_pose");
+var util_1 = require("./util");
+function withinNmsRadiusOfCorrespondingPoint(poses, squaredNmsRadius, _a, keypointId) {
+    var x = _a.x, y = _a.y;
+    return poses.some(function (_a) {
+        var keypoints = _a.keypoints;
+        var correspondingKeypoint = keypoints[keypointId].position;
+        return util_1.squaredDistance(y, x, correspondingKeypoint.y, correspondingKeypoint.x) <=
+            squaredNmsRadius;
+    });
+}
+function getInstanceScore(existingPoses, squaredNmsRadius, instanceKeypoints) {
+    var notOverlappedKeypointScores = instanceKeypoints.reduce(function (result, _a, keypointId) {
+        var position = _a.position, score = _a.score;
+        if (!withinNmsRadiusOfCorrespondingPoint(existingPoses, squaredNmsRadius, position, keypointId)) {
+            result += score;
+        }
+        return result;
+    }, 0.0);
+    return notOverlappedKeypointScores /= instanceKeypoints.length;
+}
+var kLocalMaximumRadius = 1;
+function decodeMultiplePoses(scoresBuffer, offsetsBuffer, displacementsFwdBuffer, displacementsBwdBuffer, outputStride, maxPoseDetections, scoreThreshold, nmsRadius) {
+    if (scoreThreshold === void 0) { scoreThreshold = 0.5; }
+    if (nmsRadius === void 0) { nmsRadius = 20; }
+    var poses = [];
+    var queue = build_part_with_score_queue_1.buildPartWithScoreQueue(scoreThreshold, kLocalMaximumRadius, scoresBuffer);
+    var squaredNmsRadius = nmsRadius * nmsRadius;
+    while (poses.length < maxPoseDetections && !queue.empty()) {
+        var root = queue.dequeue();
+        var rootImageCoords = util_1.getImageCoords(root.part, outputStride, offsetsBuffer);
+        if (withinNmsRadiusOfCorrespondingPoint(poses, squaredNmsRadius, rootImageCoords, root.part.id)) {
+            continue;
+        }
+        var keypoints = decode_pose_1.decodePose(root, scoresBuffer, offsetsBuffer, outputStride, displacementsFwdBuffer, displacementsBwdBuffer);
+        var score = getInstanceScore(poses, squaredNmsRadius, keypoints);
+        poses.push({ keypoints: keypoints, score: score });
+    }
+    return poses;
+}
+exports.decodeMultiplePoses = decodeMultiplePoses;
+
+},{"./build_part_with_score_queue":"node_modules/@tensorflow-models/posenet/dist/multi_pose/build_part_with_score_queue.js","./decode_pose":"node_modules/@tensorflow-models/posenet/dist/multi_pose/decode_pose.js","./util":"node_modules/@tensorflow-models/posenet/dist/multi_pose/util.js"}],"node_modules/@tensorflow-models/posenet/dist/single_pose/argmax2d.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var tf = require("@tensorflow/tfjs-core");
+function mod(a, b) {
+    return tf.tidy(function () {
+        var floored = a.div(tf.scalar(b, 'int32'));
+        return a.sub(floored.mul(tf.scalar(b, 'int32')));
+    });
+}
+function argmax2d(inputs) {
+    var _a = inputs.shape, height = _a[0], width = _a[1], depth = _a[2];
+    return tf.tidy(function () {
+        var reshaped = inputs.reshape([height * width, depth]);
+        var coords = reshaped.argMax(0);
+        var yCoords = coords.div(tf.scalar(width, 'int32')).expandDims(1);
+        var xCoords = mod(coords, width).expandDims(1);
+        return tf.concat([yCoords, xCoords], 1);
+    });
+}
+exports.argmax2d = argmax2d;
+
+},{"@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js"}],"node_modules/@tensorflow-models/posenet/dist/single_pose/util.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var tf = require("@tensorflow/tfjs-core");
+var keypoints_1 = require("../keypoints");
+function getPointsConfidence(heatmapScores, heatMapCoords) {
+    var numKeypoints = heatMapCoords.shape[0];
+    var result = new Float32Array(numKeypoints);
+    for (var keypoint = 0; keypoint < numKeypoints; keypoint++) {
+        var y = heatMapCoords.get(keypoint, 0);
+        var x = heatMapCoords.get(keypoint, 1);
+        result[keypoint] = heatmapScores.get(y, x, keypoint);
+    }
+    return result;
+}
+exports.getPointsConfidence = getPointsConfidence;
+function getOffsetPoint(y, x, keypoint, offsetsBuffer) {
+    return {
+        y: offsetsBuffer.get(y, x, keypoint),
+        x: offsetsBuffer.get(y, x, keypoint + keypoints_1.NUM_KEYPOINTS)
+    };
+}
+function getOffsetVectors(heatMapCoordsBuffer, offsetsBuffer) {
+    var result = [];
+    for (var keypoint = 0; keypoint < keypoints_1.NUM_KEYPOINTS; keypoint++) {
+        var heatmapY = heatMapCoordsBuffer.get(keypoint, 0).valueOf();
+        var heatmapX = heatMapCoordsBuffer.get(keypoint, 1).valueOf();
+        var _a = getOffsetPoint(heatmapY, heatmapX, keypoint, offsetsBuffer), x = _a.x, y = _a.y;
+        result.push(y);
+        result.push(x);
+    }
+    return tf.tensor2d(result, [keypoints_1.NUM_KEYPOINTS, 2]);
+}
+exports.getOffsetVectors = getOffsetVectors;
+function getOffsetPoints(heatMapCoordsBuffer, outputStride, offsetsBuffer) {
+    return tf.tidy(function () {
+        var offsetVectors = getOffsetVectors(heatMapCoordsBuffer, offsetsBuffer);
+        return heatMapCoordsBuffer.toTensor()
+            .mul(tf.scalar(outputStride, 'int32'))
+            .toFloat()
+            .add(offsetVectors);
+    });
+}
+exports.getOffsetPoints = getOffsetPoints;
+
+},{"@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js","../keypoints":"node_modules/@tensorflow-models/posenet/dist/keypoints.js"}],"node_modules/@tensorflow-models/posenet/dist/single_pose/decode_single_pose.js":[function(require,module,exports) {
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (_) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var keypoints_1 = require("../keypoints");
+var argmax2d_1 = require("./argmax2d");
+var util_1 = require("./util");
+function decodeSinglePose(heatmapScores, offsets, outputStride) {
+    return __awaiter(this, void 0, void 0, function () {
+        var totalScore, heatmapValues, allTensorBuffers, scoresBuffer, offsetsBuffer, heatmapValuesBuffer, offsetPoints, offsetPointsBuffer, keypointConfidence, keypoints;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    totalScore = 0.0;
+                    heatmapValues = argmax2d_1.argmax2d(heatmapScores);
+                    return [4, Promise.all([heatmapScores.buffer(), offsets.buffer(), heatmapValues.buffer()])];
+                case 1:
+                    allTensorBuffers = _a.sent();
+                    scoresBuffer = allTensorBuffers[0];
+                    offsetsBuffer = allTensorBuffers[1];
+                    heatmapValuesBuffer = allTensorBuffers[2];
+                    offsetPoints = util_1.getOffsetPoints(heatmapValuesBuffer, outputStride, offsetsBuffer);
+                    return [4, offsetPoints.buffer()];
+                case 2:
+                    offsetPointsBuffer = _a.sent();
+                    keypointConfidence = Array.from(util_1.getPointsConfidence(scoresBuffer, heatmapValuesBuffer));
+                    keypoints = keypointConfidence.map(function (score, keypointId) {
+                        totalScore += score;
+                        return {
+                            position: {
+                                y: offsetPointsBuffer.get(keypointId, 0),
+                                x: offsetPointsBuffer.get(keypointId, 1)
+                            },
+                            part: keypoints_1.partNames[keypointId],
+                            score: score
+                        };
+                    });
+                    heatmapValues.dispose();
+                    offsetPoints.dispose();
+                    return [2, { keypoints: keypoints, score: totalScore / keypoints.length }];
+            }
+        });
+    });
+}
+exports.decodeSinglePose = decodeSinglePose;
+
+},{"../keypoints":"node_modules/@tensorflow-models/posenet/dist/keypoints.js","./argmax2d":"node_modules/@tensorflow-models/posenet/dist/single_pose/argmax2d.js","./util":"node_modules/@tensorflow-models/posenet/dist/single_pose/util.js"}],"node_modules/@tensorflow/tfjs-converter/dist/tf-converter.esm.js":[function(require,module,exports) {
 var Buffer = require("buffer").Buffer;
 "use strict";
 
@@ -24866,950 +25440,653 @@ function loadGraphModel(e, t) {
 
 var version = "1.3.1";
 exports.version_converter = version;
-},{"@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js","buffer":"node_modules/buffer/index.js"}],"node_modules/@tensorflow-models/posenet/dist/posenet.esm.js":[function(require,module,exports) {
+},{"@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js","buffer":"node_modules/buffer/index.js"}],"node_modules/@tensorflow-models/posenet/dist/checkpoints.js":[function(require,module,exports) {
 "use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var MOBILENET_BASE_URL = 'https://storage.googleapis.com/tfjs-models/savedmodel/posenet/mobilenet/';
+var RESNET50_BASE_URL = 'https://storage.googleapis.com/tfjs-models/savedmodel/posenet/resnet50/';
+function resNet50Checkpoint(stride, quantBytes) {
+    var graphJson = "model-stride" + stride + ".json";
+    if (quantBytes === 4) {
+        return RESNET50_BASE_URL + "float/" + graphJson;
+    }
+    else {
+        return RESNET50_BASE_URL + ("quant" + quantBytes + "/") + graphJson;
+    }
+}
+exports.resNet50Checkpoint = resNet50Checkpoint;
+function mobileNetCheckpoint(stride, multiplier, quantBytes) {
+    var toStr = { 1.0: '100', 0.75: '075', 0.50: '050' };
+    var graphJson = "model-stride" + stride + ".json";
+    if (quantBytes === 4) {
+        return MOBILENET_BASE_URL + ("float/" + toStr[multiplier] + "/") + graphJson;
+    }
+    else {
+        return MOBILENET_BASE_URL + ("quant" + quantBytes + "/" + toStr[multiplier] + "/") +
+            graphJson;
+    }
+}
+exports.mobileNetCheckpoint = mobileNetCheckpoint;
 
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.decodeMultiplePoses = decodeMultiplePoses;
-exports.decodeSinglePose = decodeSinglePose;
-exports.load = load;
+},{}],"node_modules/@tensorflow-models/posenet/dist/resnet.js":[function(require,module,exports) {
+"use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var base_model_1 = require("./base_model");
+var imageNetMean = [-123.15, -115.90, -103.06];
+var ResNet = (function (_super) {
+    __extends(ResNet, _super);
+    function ResNet() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    ResNet.prototype.preprocessInput = function (input) {
+        return input.add(imageNetMean);
+    };
+    ResNet.prototype.nameOutputResults = function (results) {
+        var displacementFwd = results[0], displacementBwd = results[1], offsets = results[2], heatmap = results[3];
+        return { offsets: offsets, heatmap: heatmap, displacementFwd: displacementFwd, displacementBwd: displacementBwd };
+    };
+    return ResNet;
+}(base_model_1.BaseModel));
+exports.ResNet = ResNet;
+
+},{"./base_model":"node_modules/@tensorflow-models/posenet/dist/base_model.js"}],"node_modules/@tensorflow-models/posenet/dist/util.js":[function(require,module,exports) {
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (_) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var tf = require("@tensorflow/tfjs-core");
+var keypoints_1 = require("./keypoints");
+function eitherPointDoesntMeetConfidence(a, b, minConfidence) {
+    return (a < minConfidence || b < minConfidence);
+}
+function getAdjacentKeyPoints(keypoints, minConfidence) {
+    return keypoints_1.connectedPartIndices.reduce(function (result, _a) {
+        var leftJoint = _a[0], rightJoint = _a[1];
+        if (eitherPointDoesntMeetConfidence(keypoints[leftJoint].score, keypoints[rightJoint].score, minConfidence)) {
+            return result;
+        }
+        result.push([keypoints[leftJoint], keypoints[rightJoint]]);
+        return result;
+    }, []);
+}
 exports.getAdjacentKeyPoints = getAdjacentKeyPoints;
-exports.getBoundingBox = getBoundingBox;
-exports.getBoundingBoxPoints = getBoundingBoxPoints;
-exports.scaleAndFlipPoses = scaleAndFlipPoses;
-exports.scalePose = scalePose;
-exports.PoseNet = exports.poseChain = exports.partNames = exports.partIds = exports.partChannels = exports.MobileNet = void 0;
-
-var tf = _interopRequireWildcard(require("@tensorflow/tfjs-core"));
-
-var _tfjsConverter = require("@tensorflow/tfjs-converter");
-
-function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
-
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; if (obj != null) { var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
-
-/**
-    * @license
-    * Copyright 2019 Google LLC. All Rights Reserved.
-    * Licensed under the Apache License, Version 2.0 (the "License");
-    * you may not use this file except in compliance with the License.
-    * You may obtain a copy of the License at
-    *
-    * http://www.apache.org/licenses/LICENSE-2.0
-    *
-    * Unless required by applicable law or agreed to in writing, software
-    * distributed under the License is distributed on an "AS IS" BASIS,
-    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    * See the License for the specific language governing permissions and
-    * limitations under the License.
-    * =============================================================================
-    */
-var extendStatics = function (e, t) {
-  return (extendStatics = Object.setPrototypeOf || {
-    __proto__: []
-  } instanceof Array && function (e, t) {
-    e.__proto__ = t;
-  } || function (e, t) {
-    for (var n in t) t.hasOwnProperty(n) && (e[n] = t[n]);
-  })(e, t);
-};
-
-function __extends(e, t) {
-  function n() {
-    this.constructor = e;
-  }
-
-  extendStatics(e, t), e.prototype = null === t ? Object.create(t) : (n.prototype = t.prototype, new n());
-}
-
-var __assign = function () {
-  return (__assign = Object.assign || function (e) {
-    for (var t, n = 1, r = arguments.length; n < r; n++) for (var o in t = arguments[n]) Object.prototype.hasOwnProperty.call(t, o) && (e[o] = t[o]);
-
-    return e;
-  }).apply(this, arguments);
-};
-
-function __awaiter(e, t, n, r) {
-  return new (n || (n = Promise))(function (o, i) {
-    function s(e) {
-      try {
-        a(r.next(e));
-      } catch (e) {
-        i(e);
-      }
-    }
-
-    function u(e) {
-      try {
-        a(r.throw(e));
-      } catch (e) {
-        i(e);
-      }
-    }
-
-    function a(e) {
-      e.done ? o(e.value) : new n(function (t) {
-        t(e.value);
-      }).then(s, u);
-    }
-
-    a((r = r.apply(e, t || [])).next());
-  });
-}
-
-function __generator(e, t) {
-  var n,
-      r,
-      o,
-      i,
-      s = {
-    label: 0,
-    sent: function () {
-      if (1 & o[0]) throw o[1];
-      return o[1];
-    },
-    trys: [],
-    ops: []
-  };
-  return i = {
-    next: u(0),
-    throw: u(1),
-    return: u(2)
-  }, "function" == typeof Symbol && (i[Symbol.iterator] = function () {
-    return this;
-  }), i;
-
-  function u(i) {
-    return function (u) {
-      return function (i) {
-        if (n) throw new TypeError("Generator is already executing.");
-
-        for (; s;) try {
-          if (n = 1, r && (o = 2 & i[0] ? r.return : i[0] ? r.throw || ((o = r.return) && o.call(r), 0) : r.next) && !(o = o.call(r, i[1])).done) return o;
-
-          switch (r = 0, o && (i = [2 & i[0], o.value]), i[0]) {
-            case 0:
-            case 1:
-              o = i;
-              break;
-
-            case 4:
-              return s.label++, {
-                value: i[1],
-                done: !1
-              };
-
-            case 5:
-              s.label++, r = i[1], i = [0];
-              continue;
-
-            case 7:
-              i = s.ops.pop(), s.trys.pop();
-              continue;
-
-            default:
-              if (!(o = (o = s.trys).length > 0 && o[o.length - 1]) && (6 === i[0] || 2 === i[0])) {
-                s = 0;
-                continue;
-              }
-
-              if (3 === i[0] && (!o || i[1] > o[0] && i[1] < o[3])) {
-                s.label = i[1];
-                break;
-              }
-
-              if (6 === i[0] && s.label < o[1]) {
-                s.label = o[1], o = i;
-                break;
-              }
-
-              if (o && s.label < o[2]) {
-                s.label = o[2], s.ops.push(i);
-                break;
-              }
-
-              o[2] && s.ops.pop(), s.trys.pop();
-              continue;
-          }
-
-          i = t.call(e, s);
-        } catch (e) {
-          i = [6, e], r = 0;
-        } finally {
-          n = o = 0;
-        }
-
-        if (5 & i[0]) throw i[1];
+var NEGATIVE_INFINITY = Number.NEGATIVE_INFINITY, POSITIVE_INFINITY = Number.POSITIVE_INFINITY;
+function getBoundingBox(keypoints) {
+    return keypoints.reduce(function (_a, _b) {
+        var maxX = _a.maxX, maxY = _a.maxY, minX = _a.minX, minY = _a.minY;
+        var _c = _b.position, x = _c.x, y = _c.y;
         return {
-          value: i[0] ? i[1] : void 0,
-          done: !0
+            maxX: Math.max(maxX, x),
+            maxY: Math.max(maxY, y),
+            minX: Math.min(minX, x),
+            minY: Math.min(minY, y)
         };
-      }([i, u]);
-    };
-  }
-}
-
-var BaseModel = function () {
-  function e(e, t) {
-    this.model = e, this.outputStride = t;
-    var n = this.model.inputs[0].shape;
-    tf.util.assert(-1 === n[1] && -1 === n[2], function () {
-      return "Input shape [" + n[1] + ", " + n[2] + "] must both be equal to or -1";
-    });
-  }
-
-  return e.prototype.predict = function (e) {
-    var t = this;
-    return (0, tf.tidy)(function () {
-      var n = t.preprocessInput(e.toFloat()).expandDims(0),
-          r = t.model.predict(n).map(function (e) {
-        return e.squeeze([0]);
-      }),
-          o = t.nameOutputResults(r);
-      return {
-        heatmapScores: o.heatmap.sigmoid(),
-        offsets: o.offsets,
-        displacementFwd: o.displacementFwd,
-        displacementBwd: o.displacementBwd
-      };
-    });
-  }, e.prototype.dispose = function () {
-    this.model.dispose();
-  }, e;
-}(),
-    MobileNet = function (e) {
-  function t() {
-    return null !== e && e.apply(this, arguments) || this;
-  }
-
-  return __extends(t, e), t.prototype.preprocessInput = function (e) {
-    return (0, tf.tidy)(function () {
-      return (0, tf.div)(e, 127.5).sub(1);
-    });
-  }, t.prototype.nameOutputResults = function (e) {
-    return {
-      offsets: e[0],
-      heatmap: e[1],
-      displacementFwd: e[2],
-      displacementBwd: e[3]
-    };
-  }, t;
-}(BaseModel);
-
-exports.MobileNet = MobileNet;
-
-function half(e) {
-  return Math.floor(e / 2);
-}
-
-var MaxHeap = function () {
-  function e(e, t) {
-    this.priorityQueue = new Array(e), this.numberOfElements = -1, this.getElementValue = t;
-  }
-
-  return e.prototype.enqueue = function (e) {
-    this.priorityQueue[++this.numberOfElements] = e, this.swim(this.numberOfElements);
-  }, e.prototype.dequeue = function () {
-    var e = this.priorityQueue[0];
-    return this.exchange(0, this.numberOfElements--), this.sink(0), this.priorityQueue[this.numberOfElements + 1] = null, e;
-  }, e.prototype.empty = function () {
-    return -1 === this.numberOfElements;
-  }, e.prototype.size = function () {
-    return this.numberOfElements + 1;
-  }, e.prototype.all = function () {
-    return this.priorityQueue.slice(0, this.numberOfElements + 1);
-  }, e.prototype.max = function () {
-    return this.priorityQueue[0];
-  }, e.prototype.swim = function (e) {
-    for (; e > 0 && this.less(half(e), e);) this.exchange(e, half(e)), e = half(e);
-  }, e.prototype.sink = function (e) {
-    for (; 2 * e <= this.numberOfElements;) {
-      var t = 2 * e;
-      if (t < this.numberOfElements && this.less(t, t + 1) && t++, !this.less(e, t)) break;
-      this.exchange(e, t), e = t;
-    }
-  }, e.prototype.getValueAt = function (e) {
-    return this.getElementValue(this.priorityQueue[e]);
-  }, e.prototype.less = function (e, t) {
-    return this.getValueAt(e) < this.getValueAt(t);
-  }, e.prototype.exchange = function (e, t) {
-    var n = this.priorityQueue[e];
-    this.priorityQueue[e] = this.priorityQueue[t], this.priorityQueue[t] = n;
-  }, e;
-}();
-
-function scoreIsMaximumInLocalWindow(e, t, n, r, o, i) {
-  for (var s = i.shape, u = s[0], a = s[1], l = !0, p = Math.max(n - o, 0), c = Math.min(n + o + 1, u), f = p; f < c; ++f) {
-    for (var d = Math.max(r - o, 0), h = Math.min(r + o + 1, a), m = d; m < h; ++m) if (i.get(f, m, e) > t) {
-      l = !1;
-      break;
-    }
-
-    if (!l) break;
-  }
-
-  return l;
-}
-
-function buildPartWithScoreQueue(e, t, n) {
-  for (var r = n.shape, o = r[0], i = r[1], s = r[2], u = new MaxHeap(o * i * s, function (e) {
-    return e.score;
-  }), a = 0; a < o; ++a) for (var l = 0; l < i; ++l) for (var p = 0; p < s; ++p) {
-    var c = n.get(a, l, p);
-    c < e || scoreIsMaximumInLocalWindow(p, c, a, l, t, n) && u.enqueue({
-      score: c,
-      part: {
-        heatmapY: a,
-        heatmapX: l,
-        id: p
-      }
-    });
-  }
-
-  return u;
-}
-
-var partNames = ["nose", "leftEye", "rightEye", "leftEar", "rightEar", "leftShoulder", "rightShoulder", "leftElbow", "rightElbow", "leftWrist", "rightWrist", "leftHip", "rightHip", "leftKnee", "rightKnee", "leftAnkle", "rightAnkle"],
-    NUM_KEYPOINTS = partNames.length,
-    partIds = partNames.reduce(function (e, t, n) {
-  return e[t] = n, e;
-}, {}),
-    connectedPartNames = [["leftHip", "leftShoulder"], ["leftElbow", "leftShoulder"], ["leftElbow", "leftWrist"], ["leftHip", "leftKnee"], ["leftKnee", "leftAnkle"], ["rightHip", "rightShoulder"], ["rightElbow", "rightShoulder"], ["rightElbow", "rightWrist"], ["rightHip", "rightKnee"], ["rightKnee", "rightAnkle"], ["leftShoulder", "rightShoulder"], ["leftHip", "rightHip"]],
-    poseChain = [["nose", "leftEye"], ["leftEye", "leftEar"], ["nose", "rightEye"], ["rightEye", "rightEar"], ["nose", "leftShoulder"], ["leftShoulder", "leftElbow"], ["leftElbow", "leftWrist"], ["leftShoulder", "leftHip"], ["leftHip", "leftKnee"], ["leftKnee", "leftAnkle"], ["nose", "rightShoulder"], ["rightShoulder", "rightElbow"], ["rightElbow", "rightWrist"], ["rightShoulder", "rightHip"], ["rightHip", "rightKnee"], ["rightKnee", "rightAnkle"]],
-    connectedPartIndices = connectedPartNames.map(function (e) {
-  var t = e[0],
-      n = e[1];
-  return [partIds[t], partIds[n]];
-}),
-    partChannels = ["left_face", "right_face", "right_upper_leg_front", "right_lower_leg_back", "right_upper_leg_back", "left_lower_leg_front", "left_upper_leg_front", "left_upper_leg_back", "left_lower_leg_back", "right_feet", "right_lower_leg_front", "left_feet", "torso_front", "torso_back", "right_upper_arm_front", "right_upper_arm_back", "right_lower_arm_back", "left_lower_arm_front", "left_upper_arm_front", "left_upper_arm_back", "left_lower_arm_back", "right_hand", "right_lower_arm_front", "left_hand"];
-exports.partChannels = partChannels;
-exports.poseChain = poseChain;
-exports.partIds = partIds;
-exports.partNames = partNames;
-
-function getOffsetPoint(e, t, n, r) {
-  return {
-    y: r.get(e, t, n),
-    x: r.get(e, t, n + NUM_KEYPOINTS)
-  };
-}
-
-function getImageCoords(e, t, n) {
-  var r = getOffsetPoint(e.heatmapY, e.heatmapX, e.id, n),
-      o = r.y,
-      i = r.x;
-  return {
-    x: e.heatmapX * t + i,
-    y: e.heatmapY * t + o
-  };
-}
-
-function clamp(e, t, n) {
-  return e < t ? t : e > n ? n : e;
-}
-
-function squaredDistance(e, t, n, r) {
-  var o = n - e,
-      i = r - t;
-  return o * o + i * i;
-}
-
-function addVectors(e, t) {
-  return {
-    x: e.x + t.x,
-    y: e.y + t.y
-  };
-}
-
-var parentChildrenTuples = poseChain.map(function (e) {
-  var t = e[0],
-      n = e[1];
-  return [partIds[t], partIds[n]];
-}),
-    parentToChildEdges = parentChildrenTuples.map(function (e) {
-  return e[1];
-}),
-    childToParentEdges = parentChildrenTuples.map(function (e) {
-  return e[0];
-});
-
-function getDisplacement(e, t, n) {
-  var r = n.shape[2] / 2;
-  return {
-    y: n.get(t.y, t.x, e),
-    x: n.get(t.y, t.x, r + e)
-  };
-}
-
-function getStridedIndexNearPoint(e, t, n, r) {
-  return {
-    y: clamp(Math.round(e.y / t), 0, n - 1),
-    x: clamp(Math.round(e.x / t), 0, r - 1)
-  };
-}
-
-function traverseToTargetKeypoint(e, t, n, r, o, i, s, u) {
-  void 0 === u && (u = 2);
-
-  for (var a = r.shape, l = a[0], p = a[1], c = getDisplacement(e, getStridedIndexNearPoint(t.position, i, l, p), s), f = addVectors(t.position, c), d = 0; d < u; d++) {
-    var h = getStridedIndexNearPoint(f, i, l, p),
-        m = getOffsetPoint(h.y, h.x, n, o);
-    f = addVectors({
-      x: h.x * i,
-      y: h.y * i
     }, {
-      x: m.x,
-      y: m.y
+        maxX: NEGATIVE_INFINITY,
+        maxY: NEGATIVE_INFINITY,
+        minX: POSITIVE_INFINITY,
+        minY: POSITIVE_INFINITY
     });
-  }
-
-  var g = getStridedIndexNearPoint(f, i, l, p),
-      _ = r.get(g.y, g.x, n);
-
-  return {
-    position: f,
-    part: partNames[n],
-    score: _
-  };
 }
-
-function decodePose(e, t, n, r, o, i) {
-  var s = t.shape[2],
-      u = parentToChildEdges.length,
-      a = new Array(s),
-      l = e.part,
-      p = e.score,
-      c = getImageCoords(l, r, n);
-  a[l.id] = {
-    score: p,
-    part: partNames[l.id],
-    position: c
-  };
-
-  for (var f = u - 1; f >= 0; --f) {
-    var d = parentToChildEdges[f],
-        h = childToParentEdges[f];
-    a[d] && !a[h] && (a[h] = traverseToTargetKeypoint(f, a[d], h, t, n, r, i));
-  }
-
-  for (f = 0; f < u; ++f) {
-    d = childToParentEdges[f], h = parentToChildEdges[f];
-    a[d] && !a[h] && (a[h] = traverseToTargetKeypoint(f, a[d], h, t, n, r, o));
-  }
-
-  return a;
+exports.getBoundingBox = getBoundingBox;
+function getBoundingBoxPoints(keypoints) {
+    var _a = getBoundingBox(keypoints), minX = _a.minX, minY = _a.minY, maxX = _a.maxX, maxY = _a.maxY;
+    return [
+        { x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY },
+        { x: minX, y: maxY }
+    ];
 }
-
-function withinNmsRadiusOfCorrespondingPoint(e, t, n, r) {
-  var o = n.x,
-      i = n.y;
-  return e.some(function (e) {
-    var n = e.keypoints[r].position;
-    return squaredDistance(i, o, n.y, n.x) <= t;
-  });
-}
-
-function getInstanceScore(e, t, n) {
-  return n.reduce(function (n, r, o) {
-    var i = r.position,
-        s = r.score;
-    return withinNmsRadiusOfCorrespondingPoint(e, t, i, o) || (n += s), n;
-  }, 0) / n.length;
-}
-
-var kLocalMaximumRadius = 1;
-
-function decodeMultiplePoses(e, t, n, r, o, i, s, u) {
-  void 0 === s && (s = .5), void 0 === u && (u = 20);
-
-  for (var a = [], l = buildPartWithScoreQueue(s, kLocalMaximumRadius, e), p = u * u; a.length < i && !l.empty();) {
-    var c = l.dequeue();
-
-    if (!withinNmsRadiusOfCorrespondingPoint(a, p, getImageCoords(c.part, o, t), c.part.id)) {
-      var f = decodePose(c, e, t, o, n, r),
-          d = getInstanceScore(a, p, f);
-      a.push({
-        keypoints: f,
-        score: d
-      });
-    }
-  }
-
-  return a;
-}
-
-function mod(e, t) {
-  return (0, tf.tidy)(function () {
-    var n = e.div((0, tf.scalar)(t, "int32"));
-    return e.sub(n.mul((0, tf.scalar)(t, "int32")));
-  });
-}
-
-function argmax2d(e) {
-  var t = e.shape,
-      n = t[0],
-      r = t[1],
-      o = t[2];
-  return (0, tf.tidy)(function () {
-    var t = e.reshape([n * r, o]).argMax(0),
-        i = t.div((0, tf.scalar)(r, "int32")).expandDims(1),
-        s = mod(t, r).expandDims(1);
-    return (0, tf.concat)([i, s], 1);
-  });
-}
-
-function getPointsConfidence(e, t) {
-  for (var n = t.shape[0], r = new Float32Array(n), o = 0; o < n; o++) {
-    var i = t.get(o, 0),
-        s = t.get(o, 1);
-    r[o] = e.get(i, s, o);
-  }
-
-  return r;
-}
-
-function getOffsetPoint$1(e, t, n, r) {
-  return {
-    y: r.get(e, t, n),
-    x: r.get(e, t, n + NUM_KEYPOINTS)
-  };
-}
-
-function getOffsetVectors(e, t) {
-  for (var n = [], r = 0; r < NUM_KEYPOINTS; r++) {
-    var o = getOffsetPoint$1(e.get(r, 0).valueOf(), e.get(r, 1).valueOf(), r, t),
-        i = o.x,
-        s = o.y;
-    n.push(s), n.push(i);
-  }
-
-  return (0, tf.tensor2d)(n, [NUM_KEYPOINTS, 2]);
-}
-
-function getOffsetPoints(e, t, n) {
-  return (0, tf.tidy)(function () {
-    var r = getOffsetVectors(e, n);
-    return e.toTensor().mul((0, tf.scalar)(t, "int32")).toFloat().add(r);
-  });
-}
-
-function decodeSinglePose(e, t, n) {
-  return __awaiter(this, void 0, void 0, function () {
-    var r, o, i, s, u, a, l, p, c, f;
-    return __generator(this, function (d) {
-      switch (d.label) {
-        case 0:
-          return r = 0, o = argmax2d(e), [4, Promise.all([e.buffer(), t.buffer(), o.buffer()])];
-
-        case 1:
-          return i = d.sent(), s = i[0], u = i[1], a = i[2], [4, (l = getOffsetPoints(a, n, u)).buffer()];
-
-        case 2:
-          return p = d.sent(), c = Array.from(getPointsConfidence(s, a)), f = c.map(function (e, t) {
-            return r += e, {
-              position: {
-                y: p.get(t, 0),
-                x: p.get(t, 1)
-              },
-              part: partNames[t],
-              score: e
-            };
-          }), o.dispose(), l.dispose(), [2, {
-            keypoints: f,
-            score: r / f.length
-          }];
-      }
-    });
-  });
-}
-
-var MOBILENET_BASE_URL = "https://storage.googleapis.com/tfjs-models/savedmodel/posenet/mobilenet/",
-    RESNET50_BASE_URL = "https://storage.googleapis.com/tfjs-models/savedmodel/posenet/resnet50/";
-
-function resNet50Checkpoint(e, t) {
-  var n = "model-stride" + e + ".json";
-  return 4 === t ? RESNET50_BASE_URL + "float/" + n : RESNET50_BASE_URL + "quant" + t + "/" + n;
-}
-
-function mobileNetCheckpoint(e, t, n) {
-  var r = {
-    1: "100",
-    .75: "075",
-    .5: "050"
-  },
-      o = "model-stride" + e + ".json";
-  return 4 === n ? MOBILENET_BASE_URL + "float/" + r[t] + "/" + o : MOBILENET_BASE_URL + "quant" + n + "/" + r[t] + "/" + o;
-}
-
-var imageNetMean = [-123.15, -115.9, -103.06],
-    ResNet = function (e) {
-  function t() {
-    return null !== e && e.apply(this, arguments) || this;
-  }
-
-  return __extends(t, e), t.prototype.preprocessInput = function (e) {
-    return e.add(imageNetMean);
-  }, t.prototype.nameOutputResults = function (e) {
-    var t = e[0],
-        n = e[1];
-    return {
-      offsets: e[2],
-      heatmap: e[3],
-      displacementFwd: t,
-      displacementBwd: n
-    };
-  }, t;
-}(BaseModel);
-
-function eitherPointDoesntMeetConfidence(e, t, n) {
-  return e < n || t < n;
-}
-
-function getAdjacentKeyPoints(e, t) {
-  return connectedPartIndices.reduce(function (n, r) {
-    var o = r[0],
-        i = r[1];
-    return eitherPointDoesntMeetConfidence(e[o].score, e[i].score, t) ? n : (n.push([e[o], e[i]]), n);
-  }, []);
-}
-
-var NEGATIVE_INFINITY = Number.NEGATIVE_INFINITY,
-    POSITIVE_INFINITY = Number.POSITIVE_INFINITY;
-
-function getBoundingBox(e) {
-  return e.reduce(function (e, t) {
-    var n = e.maxX,
-        r = e.maxY,
-        o = e.minX,
-        i = e.minY,
-        s = t.position,
-        u = s.x,
-        a = s.y;
-    return {
-      maxX: Math.max(n, u),
-      maxY: Math.max(r, a),
-      minX: Math.min(o, u),
-      minY: Math.min(i, a)
-    };
-  }, {
-    maxX: NEGATIVE_INFINITY,
-    maxY: NEGATIVE_INFINITY,
-    minX: POSITIVE_INFINITY,
-    minY: POSITIVE_INFINITY
-  });
-}
-
-function getBoundingBoxPoints(e) {
-  var t = getBoundingBox(e),
-      n = t.minX,
-      r = t.minY,
-      o = t.maxX,
-      i = t.maxY;
-  return [{
-    x: n,
-    y: r
-  }, {
-    x: o,
-    y: r
-  }, {
-    x: o,
-    y: i
-  }, {
-    x: n,
-    y: i
-  }];
-}
-
-function toTensorBuffers3D(e) {
-  return __awaiter(this, void 0, void 0, function () {
-    return __generator(this, function (t) {
-      return [2, Promise.all(e.map(function (e) {
-        return e.buffer();
-      }))];
-    });
-  });
-}
-
-function scalePose(e, t, n, r, o) {
-  return void 0 === r && (r = 0), void 0 === o && (o = 0), {
-    score: e.score,
-    keypoints: e.keypoints.map(function (e) {
-      var i = e.score,
-          s = e.part,
-          u = e.position;
-      return {
-        score: i,
-        part: s,
-        position: {
-          x: u.x * n + o,
-          y: u.y * t + r
-        }
-      };
-    })
-  };
-}
-
-function scalePoses(e, t, n, r, o) {
-  return void 0 === r && (r = 0), void 0 === o && (o = 0), 1 === n && 1 === t && 0 === r && 0 === o ? e : e.map(function (e) {
-    return scalePose(e, t, n, r, o);
-  });
-}
-
-function flipPoseHorizontal(e, t) {
-  return {
-    score: e.score,
-    keypoints: e.keypoints.map(function (e) {
-      var n = e.score,
-          r = e.part,
-          o = e.position;
-      return {
-        score: n,
-        part: r,
-        position: {
-          x: t - 1 - o.x,
-          y: o.y
-        }
-      };
-    })
-  };
-}
-
-function flipPosesHorizontal(e, t) {
-  return t <= 0 ? e : e.map(function (e) {
-    return flipPoseHorizontal(e, t);
-  });
-}
-
-function toValidInputResolution(e, t) {
-  return isValidInputResolution(e, t) ? e : Math.floor(e / t) * t + 1;
-}
-
-function validateInputResolution(e) {
-  tf.util.assert("number" == typeof e || "object" == typeof e, function () {
-    return "Invalid inputResolution " + e + ". Should be a number or an object with width and height";
-  }), "object" == typeof e && (tf.util.assert("number" == typeof e.width, function () {
-    return "inputResolution.width has a value of " + e.width + " which is invalid; it must be a number";
-  }), tf.util.assert("number" == typeof e.height, function () {
-    return "inputResolution.height has a value of " + e.height + " which is invalid; it must be a number";
-  }));
-}
-
-function getValidInputResolutionDimensions(e, t) {
-  return validateInputResolution(e), "object" == typeof e ? [toValidInputResolution(e.height, t), toValidInputResolution(e.width, t)] : [toValidInputResolution(e, t), toValidInputResolution(e, t)];
-}
-
-var VALID_OUTPUT_STRIDES = [8, 16, 32];
-
-function assertValidOutputStride(e) {
-  tf.util.assert("number" == typeof e, function () {
-    return "outputStride is not a number";
-  }), tf.util.assert(VALID_OUTPUT_STRIDES.indexOf(e) >= 0, function () {
-    return "outputStride of " + e + " is invalid. It must be either 8, 16, or 32";
-  });
-}
-
-function isValidInputResolution(e, t) {
-  return (e - 1) % t == 0;
-}
-
-function assertValidResolution(e, t) {
-  tf.util.assert("number" == typeof e[0] && "number" == typeof e[1], function () {
-    return "both resolution values must be a number but had values " + e;
-  }), tf.util.assert(isValidInputResolution(e[0], t), function () {
-    return "height of " + e[0] + " is invalid for output stride " + t + ".";
-  }), tf.util.assert(isValidInputResolution(e[1], t), function () {
-    return "width of " + e[1] + " is invalid for output stride " + t + ".";
-  });
-}
-
-function getInputTensorDimensions(e) {
-  return e instanceof tf.Tensor ? [e.shape[0], e.shape[1]] : [e.height, e.width];
-}
-
-function toInputTensor(e) {
-  return e instanceof tf.Tensor ? e : tf.browser.fromPixels(e);
-}
-
-function padAndResizeTo(e, t) {
-  var n = t[0],
-      r = t[1],
-      o = getInputTensorDimensions(e),
-      i = o[0],
-      s = o[1],
-      u = r / n,
-      a = [0, 0, 0, 0],
-      l = a[0],
-      p = a[1],
-      c = a[2],
-      f = a[3];
-  return s / i < u ? (l = 0, p = 0, c = Math.round(.5 * (u * i - s)), f = Math.round(.5 * (u * i - s))) : (l = Math.round(.5 * (1 / u * s - i)), p = Math.round(.5 * (1 / u * s - i)), c = 0, f = 0), {
-    resized: (0, tf.tidy)(function () {
-      var t = toInputTensor(e);
-      return (t = (0, tf.pad3d)(t, [[l, p], [c, f], [0, 0]])).resizeBilinear([n, r]);
-    }),
-    padding: {
-      top: l,
-      left: c,
-      right: f,
-      bottom: p
-    }
-  };
-}
-
-function scaleAndFlipPoses(e, t, n, r, o) {
-  var i = t[0],
-      s = t[1],
-      u = n[0],
-      a = n[1],
-      l = scalePoses(e, (i + r.top + r.bottom) / u, (s + r.left + r.right) / a, -r.top, -r.left);
-  return o ? flipPosesHorizontal(l, s) : l;
-}
-
-var MOBILENET_V1_CONFIG = {
-  architecture: "MobileNetV1",
-  outputStride: 16,
-  multiplier: .75,
-  inputResolution: 257
-},
-    VALID_ARCHITECTURE = ["MobileNetV1", "ResNet50"],
-    VALID_STRIDE = {
-  MobileNetV1: [8, 16, 32],
-  ResNet50: [32, 16]
-},
-    VALID_MULTIPLIER = {
-  MobileNetV1: [.5, .75, 1],
-  ResNet50: [1]
-},
-    VALID_QUANT_BYTES = [1, 2, 4];
-
-function validateModelConfig(e) {
-  if (null == (e = e || MOBILENET_V1_CONFIG).architecture && (e.architecture = "MobileNetV1"), VALID_ARCHITECTURE.indexOf(e.architecture) < 0) throw new Error("Invalid architecture " + e.architecture + ". Should be one of " + VALID_ARCHITECTURE);
-  if (null == e.inputResolution && (e.inputResolution = 257), validateInputResolution(e.inputResolution), null == e.outputStride && (e.outputStride = 16), VALID_STRIDE[e.architecture].indexOf(e.outputStride) < 0) throw new Error("Invalid outputStride " + e.outputStride + ". Should be one of " + VALID_STRIDE[e.architecture] + " for architecutre " + e.architecture + ".");
-  if (null == e.multiplier && (e.multiplier = 1), VALID_MULTIPLIER[e.architecture].indexOf(e.multiplier) < 0) throw new Error("Invalid multiplier " + e.multiplier + ". Should be one of " + VALID_MULTIPLIER[e.architecture] + " for architecutre " + e.architecture + ".");
-  if (null == e.quantBytes && (e.quantBytes = 4), VALID_QUANT_BYTES.indexOf(e.quantBytes) < 0) throw new Error("Invalid quantBytes " + e.quantBytes + ". Should be one of " + VALID_QUANT_BYTES + " for architecutre " + e.architecture + ".");
-  return e;
-}
-
-var SINGLE_PERSON_INFERENCE_CONFIG = {
-  flipHorizontal: !1
-},
-    MULTI_PERSON_INFERENCE_CONFIG = {
-  flipHorizontal: !1,
-  maxDetections: 5,
-  scoreThreshold: .5,
-  nmsRadius: 20
-};
-
-function validateMultiPersonInputConfig(e) {
-  var t = e.maxDetections,
-      n = e.scoreThreshold,
-      r = e.nmsRadius;
-  if (t <= 0) throw new Error("Invalid maxDetections " + t + ". Should be > 0");
-  if (n < 0 || n > 1) throw new Error("Invalid scoreThreshold " + n + ". Should be in range [0.0, 1.0]");
-  if (r <= 0) throw new Error("Invalid nmsRadius " + r + ".");
-}
-
-var PoseNet = function () {
-  function e(e, t) {
-    assertValidOutputStride(e.outputStride), assertValidResolution(t, e.outputStride), this.baseModel = e, this.inputResolution = t;
-  }
-
-  return e.prototype.estimateMultiplePoses = function (e, t) {
-    return void 0 === t && (t = MULTI_PERSON_INFERENCE_CONFIG), __awaiter(this, void 0, void 0, function () {
-      var n, r, o, i, s, u, a, l, p, c, f, d, h, m, g, _, I, v, y, E, b;
-
-      return __generator(this, function (N) {
-        switch (N.label) {
-          case 0:
-            return n = __assign({}, MULTI_PERSON_INFERENCE_CONFIG, t), validateMultiPersonInputConfig(t), r = this.baseModel.outputStride, o = this.inputResolution, i = getInputTensorDimensions(e), s = i[0], u = i[1], a = padAndResizeTo(e, o), l = a.resized, p = a.padding, c = this.baseModel.predict(l), f = c.heatmapScores, d = c.offsets, h = c.displacementFwd, m = c.displacementBwd, [4, toTensorBuffers3D([f, d, h, m])];
-
-          case 1:
-            return g = N.sent(), _ = g[0], I = g[1], v = g[2], y = g[3], [4, decodeMultiplePoses(_, I, v, y, r, n.maxDetections, n.scoreThreshold, n.nmsRadius)];
-
-          case 2:
-            return E = N.sent(), b = scaleAndFlipPoses(E, [s, u], o, p, n.flipHorizontal), f.dispose(), d.dispose(), h.dispose(), m.dispose(), l.dispose(), [2, b];
-        }
-      });
-    });
-  }, e.prototype.estimateSinglePose = function (e, t) {
-    return void 0 === t && (t = SINGLE_PERSON_INFERENCE_CONFIG), __awaiter(this, void 0, void 0, function () {
-      var n, r, o, i, s, u, a, l, p, c, f, d, h, m, g, _;
-
-      return __generator(this, function (I) {
-        switch (I.label) {
-          case 0:
-            return n = __assign({}, SINGLE_PERSON_INFERENCE_CONFIG, t), r = this.baseModel.outputStride, o = this.inputResolution, i = getInputTensorDimensions(e), s = i[0], u = i[1], a = padAndResizeTo(e, o), l = a.resized, p = a.padding, c = this.baseModel.predict(l), f = c.heatmapScores, d = c.offsets, h = c.displacementFwd, m = c.displacementBwd, [4, decodeSinglePose(f, d, r)];
-
-          case 1:
-            return g = I.sent(), _ = scaleAndFlipPoses([g], [s, u], o, p, n.flipHorizontal), f.dispose(), d.dispose(), h.dispose(), m.dispose(), l.dispose(), [2, _[0]];
-        }
-      });
-    });
-  }, e.prototype.estimatePoses = function (e, t) {
+exports.getBoundingBoxPoints = getBoundingBoxPoints;
+function toTensorBuffers3D(tensors) {
     return __awaiter(this, void 0, void 0, function () {
-      return __generator(this, function (n) {
-        switch (n.label) {
-          case 0:
-            return "single-person" !== t.decodingMethod ? [3, 2] : [4, this.estimateSinglePose(e, t)];
-
-          case 1:
-            return [2, [n.sent()]];
-
-          case 2:
-            return [2, this.estimateMultiplePoses(e, t)];
+        return __generator(this, function (_a) {
+            return [2, Promise.all(tensors.map(function (tensor) { return tensor.buffer(); }))];
+        });
+    });
+}
+exports.toTensorBuffers3D = toTensorBuffers3D;
+function scalePose(pose, scaleY, scaleX, offsetY, offsetX) {
+    if (offsetY === void 0) { offsetY = 0; }
+    if (offsetX === void 0) { offsetX = 0; }
+    return {
+        score: pose.score,
+        keypoints: pose.keypoints.map(function (_a) {
+            var score = _a.score, part = _a.part, position = _a.position;
+            return ({
+                score: score,
+                part: part,
+                position: {
+                    x: position.x * scaleX + offsetX,
+                    y: position.y * scaleY + offsetY
+                }
+            });
+        })
+    };
+}
+exports.scalePose = scalePose;
+function scalePoses(poses, scaleY, scaleX, offsetY, offsetX) {
+    if (offsetY === void 0) { offsetY = 0; }
+    if (offsetX === void 0) { offsetX = 0; }
+    if (scaleX === 1 && scaleY === 1 && offsetY === 0 && offsetX === 0) {
+        return poses;
+    }
+    return poses.map(function (pose) { return scalePose(pose, scaleY, scaleX, offsetY, offsetX); });
+}
+exports.scalePoses = scalePoses;
+function flipPoseHorizontal(pose, imageWidth) {
+    return {
+        score: pose.score,
+        keypoints: pose.keypoints.map(function (_a) {
+            var score = _a.score, part = _a.part, position = _a.position;
+            return ({
+                score: score,
+                part: part,
+                position: { x: imageWidth - 1 - position.x, y: position.y }
+            });
+        })
+    };
+}
+exports.flipPoseHorizontal = flipPoseHorizontal;
+function flipPosesHorizontal(poses, imageWidth) {
+    if (imageWidth <= 0) {
+        return poses;
+    }
+    return poses.map(function (pose) { return flipPoseHorizontal(pose, imageWidth); });
+}
+exports.flipPosesHorizontal = flipPosesHorizontal;
+function toValidInputResolution(inputResolution, outputStride) {
+    if (isValidInputResolution(inputResolution, outputStride)) {
+        return inputResolution;
+    }
+    return Math.floor(inputResolution / outputStride) * outputStride + 1;
+}
+exports.toValidInputResolution = toValidInputResolution;
+function validateInputResolution(inputResolution) {
+    tf.util.assert(typeof inputResolution === 'number' ||
+        typeof inputResolution === 'object', function () { return "Invalid inputResolution " + inputResolution + ". " +
+        "Should be a number or an object with width and height"; });
+    if (typeof inputResolution === 'object') {
+        tf.util.assert(typeof inputResolution.width === 'number', function () { return "inputResolution.width has a value of " + inputResolution.width + " which is invalid; it must be a number"; });
+        tf.util.assert(typeof inputResolution.height === 'number', function () { return "inputResolution.height has a value of " + inputResolution.height + " which is invalid; it must be a number"; });
+    }
+}
+exports.validateInputResolution = validateInputResolution;
+function getValidInputResolutionDimensions(inputResolution, outputStride) {
+    validateInputResolution(inputResolution);
+    if (typeof inputResolution === 'object') {
+        return [
+            toValidInputResolution(inputResolution.height, outputStride),
+            toValidInputResolution(inputResolution.width, outputStride),
+        ];
+    }
+    else {
+        return [
+            toValidInputResolution(inputResolution, outputStride),
+            toValidInputResolution(inputResolution, outputStride),
+        ];
+    }
+}
+exports.getValidInputResolutionDimensions = getValidInputResolutionDimensions;
+var VALID_OUTPUT_STRIDES = [8, 16, 32];
+function assertValidOutputStride(outputStride) {
+    tf.util.assert(typeof outputStride === 'number', function () { return 'outputStride is not a number'; });
+    tf.util.assert(VALID_OUTPUT_STRIDES.indexOf(outputStride) >= 0, function () { return "outputStride of " + outputStride + " is invalid. " +
+        "It must be either 8, 16, or 32"; });
+}
+exports.assertValidOutputStride = assertValidOutputStride;
+function isValidInputResolution(resolution, outputStride) {
+    return (resolution - 1) % outputStride === 0;
+}
+function assertValidResolution(resolution, outputStride) {
+    tf.util.assert(typeof resolution[0] === 'number' && typeof resolution[1] === 'number', function () { return "both resolution values must be a number but had values " + resolution; });
+    tf.util.assert(isValidInputResolution(resolution[0], outputStride), function () { return "height of " + resolution[0] + " is invalid for output stride " +
+        (outputStride + "."); });
+    tf.util.assert(isValidInputResolution(resolution[1], outputStride), function () { return "width of " + resolution[1] + " is invalid for output stride " +
+        (outputStride + "."); });
+}
+exports.assertValidResolution = assertValidResolution;
+function getInputTensorDimensions(input) {
+    return input instanceof tf.Tensor ? [input.shape[0], input.shape[1]] :
+        [input.height, input.width];
+}
+exports.getInputTensorDimensions = getInputTensorDimensions;
+function toInputTensor(input) {
+    return input instanceof tf.Tensor ? input : tf.browser.fromPixels(input);
+}
+exports.toInputTensor = toInputTensor;
+function toResizedInputTensor(input, resizeHeight, resizeWidth, flipHorizontal) {
+    return tf.tidy(function () {
+        var imageTensor = toInputTensor(input);
+        if (flipHorizontal) {
+            return imageTensor.reverse(1).resizeBilinear([resizeHeight, resizeWidth]);
         }
-      });
+        else {
+            return imageTensor.resizeBilinear([resizeHeight, resizeWidth]);
+        }
     });
-  }, e.prototype.dispose = function () {
-    this.baseModel.dispose();
-  }, e;
-}();
+}
+exports.toResizedInputTensor = toResizedInputTensor;
+function padAndResizeTo(input, _a) {
+    var targetH = _a[0], targetW = _a[1];
+    var _b = getInputTensorDimensions(input), height = _b[0], width = _b[1];
+    var targetAspect = targetW / targetH;
+    var aspect = width / height;
+    var _c = [0, 0, 0, 0], padT = _c[0], padB = _c[1], padL = _c[2], padR = _c[3];
+    if (aspect < targetAspect) {
+        padT = 0;
+        padB = 0;
+        padL = Math.round(0.5 * (targetAspect * height - width));
+        padR = Math.round(0.5 * (targetAspect * height - width));
+    }
+    else {
+        padT = Math.round(0.5 * ((1.0 / targetAspect) * width - height));
+        padB = Math.round(0.5 * ((1.0 / targetAspect) * width - height));
+        padL = 0;
+        padR = 0;
+    }
+    var resized = tf.tidy(function () {
+        var imageTensor = toInputTensor(input);
+        imageTensor = tf.pad3d(imageTensor, [[padT, padB], [padL, padR], [0, 0]]);
+        return imageTensor.resizeBilinear([targetH, targetW]);
+    });
+    return { resized: resized, padding: { top: padT, left: padL, right: padR, bottom: padB } };
+}
+exports.padAndResizeTo = padAndResizeTo;
+function scaleAndFlipPoses(poses, _a, _b, padding, flipHorizontal) {
+    var height = _a[0], width = _a[1];
+    var inputResolutionHeight = _b[0], inputResolutionWidth = _b[1];
+    var scaleY = (height + padding.top + padding.bottom) / (inputResolutionHeight);
+    var scaleX = (width + padding.left + padding.right) / (inputResolutionWidth);
+    var scaledPoses = scalePoses(poses, scaleY, scaleX, -padding.top, -padding.left);
+    if (flipHorizontal) {
+        return flipPosesHorizontal(scaledPoses, width);
+    }
+    else {
+        return scaledPoses;
+    }
+}
+exports.scaleAndFlipPoses = scaleAndFlipPoses;
 
+},{"@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js","./keypoints":"node_modules/@tensorflow-models/posenet/dist/keypoints.js"}],"node_modules/@tensorflow-models/posenet/dist/posenet_model.js":[function(require,module,exports) {
+"use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (_) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var tfconv = require("@tensorflow/tfjs-converter");
+var tf = require("@tensorflow/tfjs-core");
+var checkpoints_1 = require("./checkpoints");
+var mobilenet_1 = require("./mobilenet");
+var decode_multiple_poses_1 = require("./multi_pose/decode_multiple_poses");
+var resnet_1 = require("./resnet");
+var decode_single_pose_1 = require("./single_pose/decode_single_pose");
+var util_1 = require("./util");
+var MOBILENET_V1_CONFIG = {
+    architecture: 'MobileNetV1',
+    outputStride: 16,
+    multiplier: 0.75,
+    inputResolution: 257,
+};
+var VALID_ARCHITECTURE = ['MobileNetV1', 'ResNet50'];
+var VALID_STRIDE = {
+    'MobileNetV1': [8, 16, 32],
+    'ResNet50': [32, 16]
+};
+var VALID_MULTIPLIER = {
+    'MobileNetV1': [0.50, 0.75, 1.0],
+    'ResNet50': [1.0]
+};
+var VALID_QUANT_BYTES = [1, 2, 4];
+function validateModelConfig(config) {
+    config = config || MOBILENET_V1_CONFIG;
+    if (config.architecture == null) {
+        config.architecture = 'MobileNetV1';
+    }
+    if (VALID_ARCHITECTURE.indexOf(config.architecture) < 0) {
+        throw new Error("Invalid architecture " + config.architecture + ". " +
+            ("Should be one of " + VALID_ARCHITECTURE));
+    }
+    if (config.inputResolution == null) {
+        config.inputResolution = 257;
+    }
+    util_1.validateInputResolution(config.inputResolution);
+    if (config.outputStride == null) {
+        config.outputStride = 16;
+    }
+    if (VALID_STRIDE[config.architecture].indexOf(config.outputStride) < 0) {
+        throw new Error("Invalid outputStride " + config.outputStride + ". " +
+            ("Should be one of " + VALID_STRIDE[config.architecture] + " ") +
+            ("for architecture " + config.architecture + "."));
+    }
+    if (config.multiplier == null) {
+        config.multiplier = 1.0;
+    }
+    if (VALID_MULTIPLIER[config.architecture].indexOf(config.multiplier) < 0) {
+        throw new Error("Invalid multiplier " + config.multiplier + ". " +
+            ("Should be one of " + VALID_MULTIPLIER[config.architecture] + " ") +
+            ("for architecture " + config.architecture + "."));
+    }
+    if (config.quantBytes == null) {
+        config.quantBytes = 4;
+    }
+    if (VALID_QUANT_BYTES.indexOf(config.quantBytes) < 0) {
+        throw new Error("Invalid quantBytes " + config.quantBytes + ". " +
+            ("Should be one of " + VALID_QUANT_BYTES + " ") +
+            ("for architecture " + config.architecture + "."));
+    }
+    if (config.architecture === 'MobileNetV1' && config.outputStride === 32 &&
+        config.multiplier !== 1) {
+        throw new Error("When using an output stride of 32, " +
+            "you must select 1 as the multiplier.");
+    }
+    return config;
+}
+exports.SINGLE_PERSON_INFERENCE_CONFIG = {
+    flipHorizontal: false
+};
+exports.MULTI_PERSON_INFERENCE_CONFIG = {
+    flipHorizontal: false,
+    maxDetections: 5,
+    scoreThreshold: 0.5,
+    nmsRadius: 20
+};
+function validateSinglePersonInferenceConfig(config) { }
+function validateMultiPersonInputConfig(config) {
+    var maxDetections = config.maxDetections, scoreThreshold = config.scoreThreshold, nmsRadius = config.nmsRadius;
+    if (maxDetections <= 0) {
+        throw new Error("Invalid maxDetections " + maxDetections + ". " +
+            "Should be > 0");
+    }
+    if (scoreThreshold < 0.0 || scoreThreshold > 1.0) {
+        throw new Error("Invalid scoreThreshold " + scoreThreshold + ". " +
+            "Should be in range [0.0, 1.0]");
+    }
+    if (nmsRadius <= 0) {
+        throw new Error("Invalid nmsRadius " + nmsRadius + ".");
+    }
+}
+var PoseNet = (function () {
+    function PoseNet(net, inputResolution) {
+        util_1.assertValidOutputStride(net.outputStride);
+        util_1.assertValidResolution(inputResolution, net.outputStride);
+        this.baseModel = net;
+        this.inputResolution = inputResolution;
+    }
+    PoseNet.prototype.estimateMultiplePoses = function (input, config) {
+        if (config === void 0) { config = exports.MULTI_PERSON_INFERENCE_CONFIG; }
+        return __awaiter(this, void 0, void 0, function () {
+            var configWithDefaults, outputStride, inputResolution, _a, height, width, _b, resized, padding, _c, heatmapScores, offsets, displacementFwd, displacementBwd, allTensorBuffers, scoresBuffer, offsetsBuffer, displacementsFwdBuffer, displacementsBwdBuffer, poses, resultPoses;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        configWithDefaults = __assign({}, exports.MULTI_PERSON_INFERENCE_CONFIG, config);
+                        validateMultiPersonInputConfig(config);
+                        outputStride = this.baseModel.outputStride;
+                        inputResolution = this.inputResolution;
+                        _a = util_1.getInputTensorDimensions(input), height = _a[0], width = _a[1];
+                        _b = util_1.padAndResizeTo(input, inputResolution), resized = _b.resized, padding = _b.padding;
+                        _c = this.baseModel.predict(resized), heatmapScores = _c.heatmapScores, offsets = _c.offsets, displacementFwd = _c.displacementFwd, displacementBwd = _c.displacementBwd;
+                        return [4, util_1.toTensorBuffers3D([heatmapScores, offsets, displacementFwd, displacementBwd])];
+                    case 1:
+                        allTensorBuffers = _d.sent();
+                        scoresBuffer = allTensorBuffers[0];
+                        offsetsBuffer = allTensorBuffers[1];
+                        displacementsFwdBuffer = allTensorBuffers[2];
+                        displacementsBwdBuffer = allTensorBuffers[3];
+                        return [4, decode_multiple_poses_1.decodeMultiplePoses(scoresBuffer, offsetsBuffer, displacementsFwdBuffer, displacementsBwdBuffer, outputStride, configWithDefaults.maxDetections, configWithDefaults.scoreThreshold, configWithDefaults.nmsRadius)];
+                    case 2:
+                        poses = _d.sent();
+                        resultPoses = util_1.scaleAndFlipPoses(poses, [height, width], inputResolution, padding, configWithDefaults.flipHorizontal);
+                        heatmapScores.dispose();
+                        offsets.dispose();
+                        displacementFwd.dispose();
+                        displacementBwd.dispose();
+                        resized.dispose();
+                        return [2, resultPoses];
+                }
+            });
+        });
+    };
+    PoseNet.prototype.estimateSinglePose = function (input, config) {
+        if (config === void 0) { config = exports.SINGLE_PERSON_INFERENCE_CONFIG; }
+        return __awaiter(this, void 0, void 0, function () {
+            var configWithDefaults, outputStride, inputResolution, _a, height, width, _b, resized, padding, _c, heatmapScores, offsets, displacementFwd, displacementBwd, pose, poses, resultPoses;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        configWithDefaults = __assign({}, exports.SINGLE_PERSON_INFERENCE_CONFIG, config);
+                        validateSinglePersonInferenceConfig(configWithDefaults);
+                        outputStride = this.baseModel.outputStride;
+                        inputResolution = this.inputResolution;
+                        _a = util_1.getInputTensorDimensions(input), height = _a[0], width = _a[1];
+                        _b = util_1.padAndResizeTo(input, inputResolution), resized = _b.resized, padding = _b.padding;
+                        _c = this.baseModel.predict(resized), heatmapScores = _c.heatmapScores, offsets = _c.offsets, displacementFwd = _c.displacementFwd, displacementBwd = _c.displacementBwd;
+                        return [4, decode_single_pose_1.decodeSinglePose(heatmapScores, offsets, outputStride)];
+                    case 1:
+                        pose = _d.sent();
+                        poses = [pose];
+                        resultPoses = util_1.scaleAndFlipPoses(poses, [height, width], inputResolution, padding, configWithDefaults.flipHorizontal);
+                        heatmapScores.dispose();
+                        offsets.dispose();
+                        displacementFwd.dispose();
+                        displacementBwd.dispose();
+                        resized.dispose();
+                        return [2, resultPoses[0]];
+                }
+            });
+        });
+    };
+    PoseNet.prototype.estimatePoses = function (input, config) {
+        return __awaiter(this, void 0, void 0, function () {
+            var pose;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(config.decodingMethod === 'single-person')) return [3, 2];
+                        return [4, this.estimateSinglePose(input, config)];
+                    case 1:
+                        pose = _a.sent();
+                        return [2, [pose]];
+                    case 2: return [2, this.estimateMultiplePoses(input, config)];
+                }
+            });
+        });
+    };
+    PoseNet.prototype.dispose = function () {
+        this.baseModel.dispose();
+    };
+    return PoseNet;
+}());
 exports.PoseNet = PoseNet;
-
-function loadMobileNet(e) {
-  return __awaiter(this, void 0, void 0, function () {
-    var t, n, r, o, i, s, u;
-    return __generator(this, function (a) {
-      switch (a.label) {
-        case 0:
-          if (t = e.outputStride, n = e.quantBytes, r = e.multiplier, null == tf) throw new Error("Cannot find TensorFlow.js. If you are using a <script> tag, please also include @tensorflow/tfjs on the page before using this\n        model.");
-          return o = mobileNetCheckpoint(t, r, n), [4, (0, _tfjsConverter.loadGraphModel)(e.modelUrl || o)];
-
-        case 1:
-          return i = a.sent(), s = new MobileNet(i, t), u = getValidInputResolutionDimensions(e.inputResolution, s.outputStride), [2, new PoseNet(s, u)];
-      }
+function loadMobileNet(config) {
+    return __awaiter(this, void 0, void 0, function () {
+        var outputStride, quantBytes, multiplier, url, graphModel, mobilenet, validInputResolution;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    outputStride = config.outputStride;
+                    quantBytes = config.quantBytes;
+                    multiplier = config.multiplier;
+                    if (tf == null) {
+                        throw new Error("Cannot find TensorFlow.js. If you are using a <script> tag, please " +
+                            "also include @tensorflow/tfjs on the page before using this\n        model.");
+                    }
+                    url = checkpoints_1.mobileNetCheckpoint(outputStride, multiplier, quantBytes);
+                    return [4, tfconv.loadGraphModel(config.modelUrl || url)];
+                case 1:
+                    graphModel = _a.sent();
+                    mobilenet = new mobilenet_1.MobileNet(graphModel, outputStride);
+                    validInputResolution = util_1.getValidInputResolutionDimensions(config.inputResolution, mobilenet.outputStride);
+                    return [2, new PoseNet(mobilenet, validInputResolution)];
+            }
+        });
     });
-  });
 }
-
-function loadResNet(e) {
-  return __awaiter(this, void 0, void 0, function () {
-    var t, n, r, o, i, s;
-    return __generator(this, function (u) {
-      switch (u.label) {
-        case 0:
-          if (t = e.outputStride, n = e.quantBytes, null == tf) throw new Error("Cannot find TensorFlow.js. If you are using a <script> tag, please also include @tensorflow/tfjs on the page before using this\n        model.");
-          return r = resNet50Checkpoint(t, n), [4, (0, _tfjsConverter.loadGraphModel)(e.modelUrl || r)];
-
-        case 1:
-          return o = u.sent(), i = new ResNet(o, t), s = getValidInputResolutionDimensions(e.inputResolution, i.outputStride), [2, new PoseNet(i, s)];
-      }
+function loadResNet(config) {
+    return __awaiter(this, void 0, void 0, function () {
+        var outputStride, quantBytes, url, graphModel, resnet, validInputResolution;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    outputStride = config.outputStride;
+                    quantBytes = config.quantBytes;
+                    if (tf == null) {
+                        throw new Error("Cannot find TensorFlow.js. If you are using a <script> tag, please " +
+                            "also include @tensorflow/tfjs on the page before using this\n        model.");
+                    }
+                    url = checkpoints_1.resNet50Checkpoint(outputStride, quantBytes);
+                    return [4, tfconv.loadGraphModel(config.modelUrl || url)];
+                case 1:
+                    graphModel = _a.sent();
+                    resnet = new resnet_1.ResNet(graphModel, outputStride);
+                    validInputResolution = util_1.getValidInputResolutionDimensions(config.inputResolution, resnet.outputStride);
+                    return [2, new PoseNet(resnet, validInputResolution)];
+            }
+        });
     });
-  });
 }
-
-function load(e) {
-  return void 0 === e && (e = MOBILENET_V1_CONFIG), __awaiter(this, void 0, void 0, function () {
-    return __generator(this, function (t) {
-      return "ResNet50" === (e = validateModelConfig(e)).architecture ? [2, loadResNet(e)] : "MobileNetV1" === e.architecture ? [2, loadMobileNet(e)] : [2, null];
+function load(config) {
+    if (config === void 0) { config = MOBILENET_V1_CONFIG; }
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            config = validateModelConfig(config);
+            if (config.architecture === 'ResNet50') {
+                return [2, loadResNet(config)];
+            }
+            else if (config.architecture === 'MobileNetV1') {
+                return [2, loadMobileNet(config)];
+            }
+            else {
+                return [2, null];
+            }
+            return [2];
+        });
     });
-  });
 }
-},{"@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js","@tensorflow/tfjs-converter":"node_modules/@tensorflow/tfjs-converter/dist/tf-converter.esm.js"}],"node_modules/@tensorflow/tfjs-layers/dist/tf-layers.esm.js":[function(require,module,exports) {
+exports.load = load;
+
+},{"@tensorflow/tfjs-converter":"node_modules/@tensorflow/tfjs-converter/dist/tf-converter.esm.js","@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js","./checkpoints":"node_modules/@tensorflow-models/posenet/dist/checkpoints.js","./mobilenet":"node_modules/@tensorflow-models/posenet/dist/mobilenet.js","./multi_pose/decode_multiple_poses":"node_modules/@tensorflow-models/posenet/dist/multi_pose/decode_multiple_poses.js","./resnet":"node_modules/@tensorflow-models/posenet/dist/resnet.js","./single_pose/decode_single_pose":"node_modules/@tensorflow-models/posenet/dist/single_pose/decode_single_pose.js","./util":"node_modules/@tensorflow-models/posenet/dist/util.js"}],"node_modules/@tensorflow-models/posenet/dist/version.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var version = '2.2.1';
+exports.version = version;
+
+},{}],"node_modules/@tensorflow-models/posenet/dist/index.js":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var mobilenet_1 = require("./mobilenet");
+exports.MobileNet = mobilenet_1.MobileNet;
+var decode_multiple_poses_1 = require("./multi_pose/decode_multiple_poses");
+exports.decodeMultiplePoses = decode_multiple_poses_1.decodeMultiplePoses;
+var decode_single_pose_1 = require("./single_pose/decode_single_pose");
+exports.decodeSinglePose = decode_single_pose_1.decodeSinglePose;
+var keypoints_1 = require("./keypoints");
+exports.partChannels = keypoints_1.partChannels;
+exports.partIds = keypoints_1.partIds;
+exports.partNames = keypoints_1.partNames;
+exports.poseChain = keypoints_1.poseChain;
+var posenet_model_1 = require("./posenet_model");
+exports.load = posenet_model_1.load;
+exports.PoseNet = posenet_model_1.PoseNet;
+var util_1 = require("./util");
+exports.getAdjacentKeyPoints = util_1.getAdjacentKeyPoints;
+exports.getBoundingBox = util_1.getBoundingBox;
+exports.getBoundingBoxPoints = util_1.getBoundingBoxPoints;
+exports.scaleAndFlipPoses = util_1.scaleAndFlipPoses;
+exports.scalePose = util_1.scalePose;
+var version_1 = require("./version");
+exports.version = version_1.version;
+
+},{"./mobilenet":"node_modules/@tensorflow-models/posenet/dist/mobilenet.js","./multi_pose/decode_multiple_poses":"node_modules/@tensorflow-models/posenet/dist/multi_pose/decode_multiple_poses.js","./single_pose/decode_single_pose":"node_modules/@tensorflow-models/posenet/dist/single_pose/decode_single_pose.js","./keypoints":"node_modules/@tensorflow-models/posenet/dist/keypoints.js","./posenet_model":"node_modules/@tensorflow-models/posenet/dist/posenet_model.js","./util":"node_modules/@tensorflow-models/posenet/dist/util.js","./version":"node_modules/@tensorflow-models/posenet/dist/version.js"}],"node_modules/@tensorflow/tfjs-layers/dist/tf-layers.esm.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -40849,7 +41126,7 @@ function drawOffsetVectors(heatMapValues, offsets, outputStride, scale = 1, ctx)
     drawSegment([heatmapY, heatmapX], [offsetPointY, offsetPointX], color, scale, ctx);
   }
 }
-},{"@tensorflow-models/posenet":"node_modules/@tensorflow-models/posenet/dist/posenet.esm.js","@tensorflow/tfjs":"node_modules/@tensorflow/tfjs/dist/tf.esm.js"}],"coco.js":[function(require,module,exports) {
+},{"@tensorflow-models/posenet":"node_modules/@tensorflow-models/posenet/dist/index.js","@tensorflow/tfjs":"node_modules/@tensorflow/tfjs/dist/tf.esm.js"}],"coco.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -41196,5 +41473,5 @@ async function bindPage() {
 }
 
 bindPage();
-},{"@tensorflow-models/posenet":"node_modules/@tensorflow-models/posenet/dist/posenet.esm.js","@tensorflow/tfjs":"node_modules/@tensorflow/tfjs/dist/tf.esm.js","dat.gui":"node_modules/dat.gui/build/dat.gui.module.js","./demo_util":"demo_util.js"}]},{},["coco.js"], null)
+},{"@tensorflow-models/posenet":"node_modules/@tensorflow-models/posenet/dist/index.js","@tensorflow/tfjs":"node_modules/@tensorflow/tfjs/dist/tf.esm.js","dat.gui":"node_modules/dat.gui/build/dat.gui.module.js","./demo_util":"demo_util.js"}]},{},["coco.js"], null)
 //# sourceMappingURL=/coco.b47bb1bf.js.map
