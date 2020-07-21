@@ -4,7 +4,7 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="icon" href="img/favicon.png" type="image/png">
+    <link rel="icon" href={{ url_for("static", filename="img/favicon.png") }} type="image/png">
     <title>Dashboard</title>
 
     <style>
@@ -36,12 +36,12 @@
 }
     </style>
     <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="css/bootstrap.css">
-    <link rel="stylesheet" href="css/themify-icons.css">
+    <link rel="stylesheet" href={{ url_for("static", filename="css/bootstrap.css") }}>
+    <link rel="stylesheet" href={{ url_for("static", filename="css/themify-icons.css") }}>
 
     <!-- main css -->
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/responsive.css">
+    <link rel="stylesheet" href={{ url_for("static", filename="css/style.css") }}>
+    <link rel="stylesheet" href={{ url_for("static", filename="css/responsive.css") }}>
     <!-- <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-analytics.js"></script>
@@ -56,7 +56,7 @@
             <nav class="navbar navbar-expand-lg navbar-light">
                 <div class="container">
                     <!-- Brand and toggle get grouped for better mobile display -->
-                    <h1 style="color:whitesmoke;font-size: 40px"><a href ="index.html" style="color:whitesmoke">Posture Correction System</a></h1>
+                    <h1 style="color:whitesmoke;font-size: 40px"><a href ="/index" style="color:whitesmoke">Posture Correction System</a></h1>
                     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="icon-bar"></span>
                         <span class="icon-bar"></span>
@@ -65,9 +65,9 @@
                     <!-- Collect the nav links, forms, and other content for toggling -->
                     <div class="collapse navbar-collapse offset" id="navbarSupportedContent">
                         <ul class="nav navbar-nav menu_nav ml-auto">
-                            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                            <li class="nav-item"><a class="nav-link" href="/index">Home</a></li>
 
-                            <li class="nav-item"><a class="nav-link" href="contact.html">Contact Us</a></li>
+                            <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
                         </ul>
                     </div>
                 </div>
@@ -127,7 +127,7 @@
 
     setInterval(UpdateGraph, 20);
 </script>
-<script src="js/plot.js"></script>
+<script src={{ url_for("static", filename="js/plot.js") }}></script>
 
 
 
