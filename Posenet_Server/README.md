@@ -4,7 +4,7 @@
  Pull this branch onto your local machine
 
 ```bash
-git pull orgin development:'your local branch name'
+git pull origin development:'your local branch name'
 ```
 Install nginx and update the nginx.conf with the one present in this branch at the location below
 
