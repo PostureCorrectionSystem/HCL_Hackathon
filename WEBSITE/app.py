@@ -26,9 +26,5 @@ def contact():
 def posenet():
         return render_template("posenet.html")  
         
-@app.route("/notif")                             
-def notif():
-        return render_template("notif.html")
-        
 if __name__ == "__main__":
         app.run(debug = True)     

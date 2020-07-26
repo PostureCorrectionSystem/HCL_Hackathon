@@ -76,7 +76,11 @@ function run(){
   window.setInterval(()=>{
     currentAngle = getNoseAngle()
     if(Math.abs(currentAngle-threshold)>10){
-      console.log("Sit properly")
+        console.log("Sit properly")
+        Push.create("Sit Properly!", {
+        body: "PCS web notification!",
+        timeout: 2000,
+        });
     }
     else{
       console.log("Okay")
