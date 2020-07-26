@@ -1,0 +1,13 @@
+Testing Posenet
+
+git clone the branch Website_Prototype on your system
+
+cd HCL_Hackathon/WEBSITE
+export FLASK_APP=app.py
+flask run
+
+On your browser go to 127.0.0.1/5000/posenet
+Allow permissions to send notifications
+
+Click on Calibrate and Run Program
+When you shift positions, notifications shall pop up
