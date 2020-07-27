@@ -48,6 +48,8 @@ var svg1 = d3.select("#svgcontainer")
 .append("svg")
 .attr("width", width)
 .attr("height", height)
+        .append("g")
+        .attr("transform","translate(-160,20)");
 
 
 
