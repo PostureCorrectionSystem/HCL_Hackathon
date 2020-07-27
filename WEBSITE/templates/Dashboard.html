@@ -5,35 +5,87 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="icon" href={{ url_for("static", filename="img/favicon.png") }} type="image/png">
+        
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <!-- load p5.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/addons/p5.dom.min.js"></script>
+        <!-- load ml5.js -->
+        <script src="https://unpkg.com/ml5@0.2.3/dist/ml5.min.js" type="text/javascript"></script>
+        <script src={{ url_for("static", filename="js/push.js") }}></script>
+        <script src={{ url_for("static", filename="js/serviceWorker.js") }}></script>
     <title>Dashboard</title>
 
     <style>
-        .frame {
-  fill: none;
-  stroke: #000;
-}
+            .container1 {
+                       display: flex;
+                   }
 
+                   .inner {
+                       flex: 1;
+                       border: 2px solid white;
+                        width: 50%;
+                   }
+
+                   .inner:first-child {
+                       margin-right: 10px;
+                   }
+            
+    .button1 {
+        margin-left: 267px;
+        margin-top: 37px;
+      text-align: center;
+      display: inline-block;
+    }
+    
+    
+    .buttonx {
+        text-align: center;
+    }
+            
+       .frame {
+   fill: none;
+   stroke: #000;
+   width: 50%;
+   float: left;
+ }
+    
 .axis text {
   font: 10px sans-serif;
 }
 
-.axis line,
-.axis circle {
-  fill: none;
-  stroke: #777;
-  stroke-dasharray: 1,4;
-}
+    .axis line,
+    .axis circle {
+      fill: none;
+      width: 50%;
+      float: left;
+      stroke: #777;
+      stroke-dasharray: 1,4;
+    }
 
 .axis :last-of-type circle {
+  width: 50%;
   stroke: #333;
   stroke-dasharray: none;
 }
+        
 
 .line {
   fill: none;
   stroke: red;
   stroke-width: 1.5px;
 }
+    
+
+    @media screen and (max-width: 1000px) {
+      .container1 {
+        flex-direction: column;
+      }
+      .buttonx{
+          text-align: center;
+      }
+    }
+
     </style>
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href={{ url_for("static", filename="css/bootstrap.css") }}>
@@ -47,6 +99,7 @@
     <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-analytics.js"></script>
     <script src="js/graph.js"></script> -->
     <script src = "https://d3js.org/d3.v4.min.js"></script>
+    
 </head>
 <body>
 
@@ -56,7 +109,7 @@
             <nav class="navbar navbar-expand-lg navbar-light">
                 <div class="container">
                     <!-- Brand and toggle get grouped for better mobile display -->
-                    <h1 style="color:whitesmoke;font-size: 40px"><a href ="/index" style="color:whitesmoke">Posture Correction System</a></h1>
+                    <h1 style="color:whitesmoke;font-size: 40px" ><a href ="/index" style="color:whitesmoke">Posture Correction System</a></h1>
                     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="icon-bar"></span>
                         <span class="icon-bar"></span>
@@ -82,14 +135,32 @@
         <div class="container text-center">
             <h2>Your Dashboard<br></h2>
             <h3>You can lean on us </h3><br><br>
-            <button type="button">Toggle ON/OFF</button>
-        </div>
+                    </div>
 
     </section>
     <!--================Hero Banner Area End =================-->
 <!-- Graph goes here -->
-<div id ="svgcontainer"></div>
 
+<div class="container1">
+    
+<div class ="inner">
+    <div id="svgcontainer">
+    
+</div>
+    <button type="button" class = "button1">Toggle ON/OFF</button>
+
+</div>
+  <div class="inner">
+    <h1><center>PoseNet demo with Ml5.js</center></h1>
+    
+    <canvas style="text-align: center;" id="canvas" width="640" height="480"></canvas>
+    <video id="video" width="640" height="480" autoplay style="display: none"></video>
+    <div class="buttonx">
+    <button type="button" onclick = "callibrate()" class="button2">callibrate!</button>
+    <button type="button" onclick = "run()" class="button3">Run Program</button>
+    <button type="button" onclick = "Stop()"class="button3" >Stop!</button></div>
+    <script src={{ url_for("static", filename="js/posenet.js") }}></script>
+  </div>
 </div>
 
     <!--================Blog Area =================-->
@@ -122,13 +193,12 @@
       var elem = document.getElementsByTagName('svg')[0];
       elem.parentNode.removeChild(elem);
       createGraph();
-      console.log("Called")
     }
 
     setInterval(UpdateGraph, 20);
 </script>
-<script src={{ url_for("static", filename="js/plot.js") }}></script>
 
+<script src={{ url_for("static", filename="js/plot.js") }}></script>
 
 
 </html>
