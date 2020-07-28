@@ -159,7 +159,6 @@
     <button type="button" onclick = "callibrate()" class="button2">callibrate!</button>
     <button type="button" onclick = "run()" class="button3">Run Program</button>
     <button type="button" onclick = "Stop()"class="button3" >Stop!</button></div>
-    <script src={{ url_for("static", filename="js/posenet.js") }}></script>
   </div>
 </div>
 
@@ -186,19 +185,17 @@
 
   window.addEventListener("load",loadGraph)
   function loadGraph(){
-      createGraph()
+    //   createGraph()
   }
 
   function UpdateGraph(){
       var elem = document.getElementsByTagName('svg')[0];
-      elem.parentNode.removeChild(elem);
-      createGraph();
+    //   elem.parentNode.removeChild(elem);
+    //   createGraph();
     }
 
     setInterval(UpdateGraph, 20);
 </script>
-
+<script src={{ url_for("static", filename="js/posenet.js") }}></script>
 <script src={{ url_for("static", filename="js/plot.js") }}></script>
-
-
 </html>

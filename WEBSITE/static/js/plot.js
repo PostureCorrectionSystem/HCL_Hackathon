@@ -1,13 +1,13 @@
 var x = document.getElementById("myBtn");
 
 const Database = firebase.database();
-const ref1 = Database.ref('/Right/Pitch/Pitch')
+const ref4 = Database.ref('/Right/Pitch/Pitch')
 
-ref1.on('value', gotData);
+ref4.on('value', gotData);
 
 
 var angle;
- function gotData(data){
+function gotData(data){
     var pitch = data.val();
     angle = pitch
     console.log(pitch);
