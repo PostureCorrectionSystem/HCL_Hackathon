@@ -1,27 +1,37 @@
 var video = document.getElementById("video");
 var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext("2d");
+
+/**
+ * initial thresholds; Global variables so do not modify or change
+ */
 let threshold = 0;
 let shoulderThreshold = 0;
 let currentAngle = 0;
 let poses = [];
 let key = false;
+let mainInterval;
+
+/**
+ * firebase references to access the database
+ */
 const Database1 = firebase.database();
 const ref1 = Database1.ref("/Callibration");
 const ref2 = Database1.ref("/Right/Pitch/Pitch");
-
 const ref3 = Database1.ref("/Right/Status");
 
-// The detected positions will be inside an array
-
-// Create a webcam capture
+/**
+ * Camera setup. Need to add option to use product by switching off camera(Using camera but not displaying person)
+ */
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
   navigator.mediaDevices.getUserMedia({ video: true }).then(function (stream) {
     video.srcObject = stream;
     video.play();
   });
 }
-
+/**
+ * Functions to display video feed
+ */
 function drawCameraIntoCanvas() {
   ctx.drawImage(video, 0, 0, 640, 480);
 
@@ -30,15 +40,22 @@ function drawCameraIntoCanvas() {
 
 drawCameraIntoCanvas();
 
+/**
+ * Loading of posenet model
+ */
 const poseNet = ml5.poseNet(video, modelReady);
 poseNet.on("pose", (results) => {
   poses = results;
 });
 
 function modelReady() {
+  //add code to enable buttons to use product
   console.log("model ready");
 }
 
+/**
+ * "Function" to debug product
+ */
 function show() {
   ref3.once("value").then(function (snapshot) {
     console.log(snapshot.val(), typeof snapshot.val());
@@ -46,6 +63,11 @@ function show() {
 
   console.log("Received ref3 value");
 }
+
+/**
+ * Function to callibrate the facial seating angle.
+ * Need to add the sensor callibration as well. Make changes here for sensor callibration
+ */
 function callibrate() {
   poseNet.singlePose(video);
   threshold = getNoseAngle();
@@ -53,8 +75,12 @@ function callibrate() {
   ref1.set({ Value: threshold });
   console.log("Pushed to firebase");
   poses = [];
-  // console.log(poses)
 }
+
+/**
+ * Helper functions to process angle and distance between nose and shoulders. Need to add error handling
+ * getDistance,toDegrees,getAngle,getNoseAngle
+ */
 
 function getDistance(position_1, position_2) {
   return Math.sqrt(
@@ -91,11 +117,16 @@ function getNoseAngle() {
   return l;
 }
 
+/**
+ * Main driver function which checks for seating posture and shoulder status from firebase
+ * and displays the notification
+ */
+
 function run() {
   poseNet.on("pose", (results) => {
     poses = results;
   });
-  window.setInterval(() => {
+  mainInterval = setInterval(() => {
     ref3.once("value").then(function (snapshot) {
       currentAngle = getNoseAngle();
       console.log(snapshot.val(), currentAngle);
@@ -113,5 +144,6 @@ function run() {
 }
 
 function Stop() {
-  window.clearInterval();
+  poseNet.removeEventListener("on");
+  clearInterval(mainInterval);
 }

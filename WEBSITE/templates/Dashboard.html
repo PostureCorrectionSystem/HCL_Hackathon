@@ -46,7 +46,7 @@
        .frame {
    fill: none;
    stroke: #000;
-   width: 50%;
+   width: 20%;
    float: left;
  }
     
@@ -128,28 +128,23 @@
         </div>
     </header>
     <!--================Header Menu Area =================-->
-
-
-    <!--================Hero Banner Area Start =================-->
-    <section class="hero-banner d-flex align-items-center">
+    
+       <section class="hero-banner d-flex align-items-center">
         <div class="container text-center">
             <h2>Your Dashboard<br></h2>
-            <h3>You can lean on us </h3><br><br>
-                    </div>
-
+  
     </section>
-    <!--================Hero Banner Area End =================-->
+    
 <!-- Graph goes here -->
-
 <div class="container1">
     
 <div class ="inner">
-    <div id="svgcontainer">
     
+    <button type="button" class = "button1" onclick="showGraph()">ON</button>
+    <button type="button" class = "button1" onclick="stopGraphDisplay()">OFF</button>
+    <div id="svgcontainer"> </div>
 </div>
-    <button type="button" class = "button1">Toggle ON/OFF</button>
-
-</div>
+<!-- Video camera feed and buttons -->
   <div class="inner">
     <h1><center>PoseNet demo with Ml5.js</center></h1>
     
@@ -162,13 +157,17 @@
   </div>
 </div>
 
-    <!--================Blog Area =================-->
+    
 </body>
 <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/7.15.5/firebase-analytics.js"></script>
 <script>
-  // Your web app's Firebase configuration
+ /**
+  * 
+  *Initialising Firebase 
+  * 
+  */
 
   var firebaseConfig = {
     apiKey: "AIzaSyAeR2pOelBp7gP2yjbGigYechQTdMSAfeM",
@@ -183,18 +182,36 @@
   firebase.initializeApp(firebaseConfig);
   firebase.analytics();
 
-  window.addEventListener("load",loadGraph)
-  function loadGraph(){
-    //   createGraph()
+  var interval; // variable to hold the interval object
+
+  /*
+    wrapper function to update graph at regular intervals(1s)
+  */
+  function showGraph(){
+      createGraph()
+      interval = setInterval(displayGraph,1000)
   }
 
-  function UpdateGraph(){
-      var elem = document.getElementsByTagName('svg')[0];
-    //   elem.parentNode.removeChild(elem);
-    //   createGraph();
-    }
+/*
+ Main function to update graph.
+ Removes old graph and updates with a new graph after obtaining value from firebase
+*/
+  function displayGraph(){
+    var elem = document.getElementsByTagName('svg')[0];
+      elem.parentNode.removeChild(elem);
+      createGraph() 
+  }
 
-    setInterval(UpdateGraph, 20);
+  /*
+ Function to clear the interval that updates the graph
+*/
+    function stopGraphDisplay(){
+      
+      clearInterval(interval)
+      var elem = document.getElementsByTagName('svg')[0];
+      elem.parentNode.removeChild(elem);
+    }
+ 
 </script>
 <script src={{ url_for("static", filename="js/posenet.js") }}></script>
 <script src={{ url_for("static", filename="js/plot.js") }}></script>
