@@ -2,9 +2,9 @@
 References to the firebase database 
 */
 const Database = firebase.database();
-const ref4 = Database.ref("/Right/Pitch/Pitch");
+const ref7 = Database.ref("/Right/Pitch/Pitch");
 
-ref4.on("value", gotData);
+ref7.on("value", gotData);
 /* 
 global variable to hold the current angle
 and function to updata angle
@@ -13,7 +13,7 @@ var angle;
 function gotData(data) {
   angle = data.val();
   // console.log(angle);
-  createGraph();
+  // createGraph();
 }
 
 /**

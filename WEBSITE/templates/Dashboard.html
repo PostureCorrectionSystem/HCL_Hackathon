@@ -140,8 +140,8 @@
     
 <div class ="inner">
     
-    <button type="button" class = "button1" onclick="showGraph()">ON</button>
-    <button type="button" class = "button1" onclick="stopGraphDisplay()">OFF</button>
+    <button type="button" class = "button1" onclick="showGraph()" disabled>ON</button>
+    <button type="button" class = "button1" onclick="stopGraphDisplay()"disabled>OFF</button>
     <div id="svgcontainer"> </div>
 </div>
 <!-- Video camera feed and buttons -->
@@ -151,9 +151,9 @@
     <canvas style="text-align: center;" id="canvas" width="640" height="480"></canvas>
     <video id="video" width="640" height="480" autoplay style="display: none"></video>
     <div class="buttonx">
-    <button type="button" onclick = "callibrate()" class="button2">callibrate!</button>
-    <button type="button" onclick = "run()" class="button3">Run Program</button>
-    <button type="button" onclick = "Stop()"class="button3" >Stop!</button></div>
+    <button type="button" onclick = "callibrate()" class="button2" disabled>callibrate!</button>
+    <button type="button" onclick = "run()" class="button3"disabled>Run Program</button>
+    <button type="button" onclick = "Stop()"class="button3" disabled>Stop!</button></div>
   </div>
 </div>
 

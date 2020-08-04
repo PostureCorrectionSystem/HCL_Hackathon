@@ -16,9 +16,11 @@ let mainInterval;
  * firebase references to access the database
  */
 const Database1 = firebase.database();
-const ref1 = Database1.ref("/Callibration");
+const ref1 = Database1.ref("/Callibration_Face");
 const ref2 = Database1.ref("/Right/Pitch/Pitch");
 const ref3 = Database1.ref("/Right/Status");
+const ref4 = Database1.ref("/Calibration")
+const ref5 = Database1.ref("/Hunch")
 
 /**
  * Camera setup. Need to add option to use product by switching off camera(Using camera but not displaying person)
@@ -50,7 +52,11 @@ poseNet.on("pose", (results) => {
 
 function modelReady() {
   //add code to enable buttons to use product
-  console.log("model ready");
+  let buttons = document.querySelectorAll("button");
+  // console.log(button)
+  for(var i=0;i<buttons.length;i++){
+    buttons[i].disabled = false
+  }
 }
 
 /**
@@ -69,12 +75,14 @@ function show() {
  * Need to add the sensor callibration as well. Make changes here for sensor callibration
  */
 function callibrate() {
+  ref4.set({Value:"YES"})
   poseNet.singlePose(video);
   threshold = getNoseAngle();
   console.log(threshold);
   ref1.set({ Value: threshold });
   console.log("Pushed to firebase");
   poses = [];
+  setTimeout(()=>{ref4.set({Value:"NULL"})},1000);
 }
 
 /**
@@ -131,12 +139,15 @@ function run() {
       currentAngle = getNoseAngle();
       console.log(snapshot.val(), currentAngle);
       if (Math.abs(currentAngle - threshold) > 10 || snapshot.val() == "NO") {
+
         console.log("Sit properly");
+        ref5.set({test:"YES"})
         Push.create("Sit Properly!", {
           body: "PCS web notification!",
           timeout: 2000,
         });
       } else {
+        ref5.set({test:"NO"})
         console.log("Okay");
       }
     });
