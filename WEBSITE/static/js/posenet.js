@@ -38,7 +38,7 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
 function drawCameraIntoCanvas() {
   ctx.drawImage(video, 0, 0, 640, 480);
 
-  // window.requestAnimationFrame(drawCameraIntoCanvas);
+  window.requestAnimationFrame(drawCameraIntoCanvas);
 }
 
 drawCameraIntoCanvas();
@@ -55,9 +55,9 @@ function modelReady() {
   //add code to enable buttons to use product
   let buttons = document.querySelectorAll("button");
   // console.log(button)
-  buttons.forEach((button)=>{
-    button.disabled = false;
-  })
+  for(var i=0;i<buttons.length;i++){
+    buttons[i].disabled = false
+  }
 }
 
 /**
@@ -109,33 +109,21 @@ function getAngle(a, b, c) {
 }
 
 function getNoseAngle() {
+  let NLS = getDistance(
+    poses[0]["pose"]["keypoints"][0]["position"],
+    poses[0]["pose"]["keypoints"][5]["position"]
+  ); // nose to left shoulder
+  let NRS = getDistance(
+    poses[0]["pose"]["keypoints"][0]["position"],
+    poses[0]["pose"]["keypoints"][6]["position"]
+  ); // nose to right shoulder
+  let SD = getDistance(
+    poses[0]["pose"]["keypoints"][5]["position"],
+    poses[0]["pose"]["keypoints"][6]["position"]
+  ); // distance between shoulders
+  let l = getAngle(NLS, NRS, SD);
 
-  try{
-    let NLS = getDistance(
-      poses[0]["pose"]["keypoints"][0]["position"],
-      poses[0]["pose"]["keypoints"][5]["position"]
-    ); // nose to left shoulder
-    let NRS = getDistance(
-      poses[0]["pose"]["keypoints"][0]["position"],
-      poses[0]["pose"]["keypoints"][6]["position"]
-    ); // nose to right shoulder
-    let SD = getDistance(
-      poses[0]["pose"]["keypoints"][5]["position"],
-      poses[0]["pose"]["keypoints"][6]["position"]
-    ); // distance between shoulders
-    let l = getAngle(NLS, NRS, SD);
-  
-    return l;
-  }
-  catch(err){
-    console.log("Unable to detect face");  
-    Push.create("Face not found", {
-      body: "Please sit in callibrated position",
-      timeout: 2000,
-    });
-    return threshold+11;
-  }
-  
+  return l;
 }
 
 /**
@@ -153,7 +141,8 @@ function run() {
       currentAngle = getNoseAngle();
       console.log(snapshot.val(), currentAngle);
       if (Math.abs(currentAngle - threshold) > 10 || snapshot.val() == "NO") {
-        var currentTime = new Date();
+        var d = new Date();
+        var currentTime = d.getHours()+":"+d.getMinutes()+" "+d.getDate()+"-"+(d.getMonth()+1)+"-"+d.getFullYear();
         var Data1 = {
           Time: String(currentTime),
           Posture: "YES"
@@ -166,7 +155,8 @@ function run() {
           timeout: 2000,
         });
       } else {
-        var currentTime = new Date();
+        var d = new Date();
+        var currentTime = d.getHours()+":"+d.getMinutes()+" "+d.getDate()+"-"+(d.getMonth()+1)+"-"+d.getFullYear();
         var Data2 = {
           Time: String(currentTime),
           Posture: "NO"
@@ -180,7 +170,6 @@ function run() {
 }
 
 function Stop() {
-  // poseNet.removeEventListener("on");
-  poseNet.on("pose",(results)=>{}); //dummy function; "pose" events will listen but not do anything
-  
+  poseNet.removeEventListener("on");
+  clearInterval(mainInterval);
 }
