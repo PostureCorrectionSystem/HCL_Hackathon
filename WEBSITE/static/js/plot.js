@@ -4,26 +4,52 @@ References to the firebase database
 const Database = firebase.database();
 const ref7 = Database.ref("/Right/Pitch/Pitch");
 const ref8 = Database.ref("/PastData");
-let graphData;
-ref8.on("value",(data)=>{
-  graphData = data.val()
-  showHistory()
-  // Object.keys(b).forEach((key)=>{
-  //   try{
-  //     console.log(b[key].Posture,b[key].Time)
-  //   }catch(err){
-  //     console.log(err)
-  //   }
-  // })
+let graphData = {};
 
-  // b.forEach((datapoint)=>{
-  //  try{
-  //     console.log(datapoint.Posture,datapoint.time) 
-  //  }catch(err){
-  //    console.log("No time")
-  //  }
-  // })
-})
+ref8.on("value", (data) => {
+  b = data.val(); //not looking for changes
+  // // {
+  //   "sjjdnsjnfjdsn":{
+  //     Time:19:32 12-08-2020,
+  //     posture:"YES"/"NO"
+  //   },
+  //   "sjjdnsjnfjdsn":{
+  //     Time:19:32,
+  //     posture:"YES"/"NO"
+  //   },
+  //   "sjjdnsjnfjdsn":{
+  //     Time:19:32,
+  //     posture:"YES"/"NO"
+  //   }
+  // }
+  //
+  // showHistory()
+  // graphData = {
+  // 1933:5,
+  // 1934:10
+  // ,.......}
+  Object.keys(b).forEach((keys) => {
+    try {
+      let key = b[keys].Time.split(" ")[0];
+      if (b[keys].Posture == "NO") {
+        if (!graphData[`${key}`]) {
+          graphData[`${key}`] = 1;
+        } else {
+          graphData[`${key}`] += 1;
+        }
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  });
+  let gdata = Array();
+  // console.log(graphData);
+  Object.keys(graphData).forEach((t) => {
+    gdata.push({ Time: t, count: graphData[t] });
+  });
+  // console.log(gdata)
+  showHistory(gdata); //to plot graph
+});
 
 ref7.on("value", gotData);
 /* 
@@ -132,59 +158,48 @@ function createGraph() {
 // data is taken from global variable called "graph data"
 // reference for this plot is taken from https://bl.ocks.org/d3noob/6f082f0e3b820b6bf68b78f2f7786084
 
-function showHistory(){
-  var margin = {top: 20, right: 20, bottom: 30, left: 50},
-    width = 960 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
+function showHistory(data) {
+  // var data=[{"Employee":"John Doe","Salary":58},{"Employee":"Jane Doe","Salary":81},{"Employee":"Mary Jane","Salary":39},{"Employee":"Debasis Das","Salary":80},{"Employee":"Nishant Singh","Salary":99}];
 
-// parse the date / time
-var parseTime = d3.timeParse("%d-%b-%y");
+  var margin = { top: 20, right: 20, bottom: 30, left: 40 },
+    width = 360 - margin.left - margin.right,
+    height = 300 - margin.top - margin.bottom;
 
-// set the ranges
-var x = d3.scaleTime().range([0, width]);
-var y = d3.scaleLinear().range([height, 0]);
+  // set the ranges
+  var x = d3.scaleBand().range([0, width]).padding(0.1);
+  var y = d3.scaleLinear().range([height, 0]);
 
-// define the line
-var valueline = d3.line()
-    .x(function(d) { return x(d.Time); })
-    .y(function(d) { return y(d.Posture); });
-
-// append the svg obgect to the body of the page
-// appends a 'group' element to 'svg'
-// moves the 'group' element to the top left margin
-var svg = d3.select("#historycontainer").append("svg")
+  var svg = d3
+    .select("#historycontainer")
+    .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform",
-          "translate(" + margin.left + "," + margin.top + ")");
-
-// Get the data
-// Scale the range of the data
-x.domain(d3.extent(graphData, function(d) { return d.Time; }));
-y.domain([0, d3.max(graphData, function(d) { return d.Posture; })]);
-
-// Add the valueline path.
-svg.append("path")
-  .data([graphData])
-  .attr("class", "line")
-  .attr("d", valueline);
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    data.forEach(function(d) {
+      d.sales = +d.sales;
+    });
   
-// Add the scatterplot
-svg.selectAll("dot")
-  .data(graphData)
-.enter().append("circle")
-  .attr("r", 5)
-  .attr("cx", function(d) { return x(d.date); })
-  .attr("cy", function(d) { return y(d.close); });
-
-// Add the X Axis
-svg.append("g")
-  .attr("transform", "translate(0," + height + ")")
-  .call(d3.axisBottom(x));
-
-// Add the Y Axis
-svg.append("g")
-  .call(d3.axisLeft(y));
-
+    // Scale the range of the data in the domains
+    x.domain(data.map(function(d) { return d.Time; }));
+    y.domain([0, d3.max(data, function(d) { return d.count; })]);
+  
+    // append the rectangles for the bar chart
+    svg.selectAll(".bar")
+        .data(data)
+      .enter().append("rect")
+        .attr("class", "bar")
+        .attr("x", function(d) { return x(d.Time); })
+        .attr("width", x.bandwidth())
+        .attr("y", function(d) { return y(d.count); })
+        .attr("height", function(d) { return height - y(d.count); });
+  
+    // add the x Axis
+    svg.append("g")
+        .attr("transform", "translate(0," + height + ")")
+        .call(d3.axisBottom(x));
+  
+    // add the y Axis
+    svg.append("g")
+        .call(d3.axisLeft(y));
 }
