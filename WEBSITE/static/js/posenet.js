@@ -109,21 +109,33 @@ function getAngle(a, b, c) {
 }
 
 function getNoseAngle() {
-  let NLS = getDistance(
-    poses[0]["pose"]["keypoints"][0]["position"],
-    poses[0]["pose"]["keypoints"][5]["position"]
-  ); // nose to left shoulder
-  let NRS = getDistance(
-    poses[0]["pose"]["keypoints"][0]["position"],
-    poses[0]["pose"]["keypoints"][6]["position"]
-  ); // nose to right shoulder
-  let SD = getDistance(
-    poses[0]["pose"]["keypoints"][5]["position"],
-    poses[0]["pose"]["keypoints"][6]["position"]
-  ); // distance between shoulders
-  let l = getAngle(NLS, NRS, SD);
+  
+  try{
+    let NLS = getDistance(
+      poses[0]["pose"]["keypoints"][0]["position"],
+      poses[0]["pose"]["keypoints"][5]["position"]
+    ); // nose to left shoulder
+    let NRS = getDistance(
+      poses[0]["pose"]["keypoints"][0]["position"],
+      poses[0]["pose"]["keypoints"][6]["position"]
+    ); // nose to right shoulder
+    let SD = getDistance(
+      poses[0]["pose"]["keypoints"][5]["position"],
+      poses[0]["pose"]["keypoints"][6]["position"]
+    ); // distance between shoulders
+    let l = getAngle(NLS, NRS, SD);
+  
+    return l;
+  }
+  catch(err){
+    console.log("Unable to detect face");  
+    Push.create("Face not found", {
+      body: "Please sit in callibrated position",
+      timeout: 2000,
+    });
+    return threshold+11;
+  }
 
-  return l;
 }
 
 /**
