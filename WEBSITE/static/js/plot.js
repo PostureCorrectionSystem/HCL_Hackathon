@@ -24,7 +24,7 @@ ref8.on("value", (data) => {
     }
   });
   let gdata = Array();
-  // console.log(graphData);
+  
   graphData = Object.keys(graphData).sort().reduce((a, c) => (a[c] = graphData[c], a), {});
   console.log(graphData);
   Object.keys(graphData).forEach((t) => {
@@ -41,8 +41,6 @@ and function to updata angle
 var angle;
 function gotData(data) {
   angle = data.val();
-  // console.log(angle);
-  // createGraph();
 }
 
 /**
