@@ -139,7 +139,7 @@
 <div class="container1">
     
 <div class ="inner">
-    
+    <h2><center>Toggle graphs on/off</center></h2>
     <button type="button" class = "button1" onclick="showGraph()" disabled>ON</button>
     <button type="button" class = "button1" onclick="stopGraphDisplay()"disabled>OFF</button>
     <div id="svgcontainer"> </div>
@@ -147,7 +147,7 @@
 </div>
 <!-- Video camera feed and buttons -->
   <div class="inner">
-    <h1><center>PoseNet demo with Ml5.js</center></h1>
+    <h1><center>Video feed to callibrate seating posture</center></h1>
     
     <canvas style="text-align: center;" id="canvas" width="640" height="480"></canvas>
     <video id="video" width="640" height="480" autoplay style="display: none"></video>
@@ -231,6 +231,7 @@
   */
   function showGraph(){
       createGraph()
+      showHistory()
       interval = setInterval(displayGraph,1000)
   }
 
@@ -240,16 +241,20 @@
 */
   function displayGraph(){
     var elem = document.getElementsByTagName('svg')[0];
-      elem.parentNode.removeChild(elem);
+    elem.parentNode.removeChild(elem);
+    var elem = document.getElementsByTagName('svg')[0];
+    elem.parentNode.removeChild(elem);
       createGraph() 
+      showHistory()
   }
 
   /*
  Function to clear the interval that updates the graph
 */
     function stopGraphDisplay(){
-      
       clearInterval(interval)
+      var elem = document.getElementsByTagName('svg')[0];
+      elem.parentNode.removeChild(elem);
       var elem = document.getElementsByTagName('svg')[0];
       elem.parentNode.removeChild(elem);
     }

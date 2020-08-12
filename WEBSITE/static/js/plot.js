@@ -4,30 +4,11 @@ References to the firebase database
 const Database = firebase.database();
 const ref7 = Database.ref("/Right/Pitch/Pitch");
 const ref8 = Database.ref("/PastData");
-let graphData = {};
+let graphData;
 
 ref8.on("value", (data) => {
-  b = data.val(); //not looking for changes
-  // // {
-  //   "sjjdnsjnfjdsn":{
-  //     Time:19:32 12-08-2020,
-  //     posture:"YES"/"NO"
-  //   },
-  //   "sjjdnsjnfjdsn":{
-  //     Time:19:32,
-  //     posture:"YES"/"NO"
-  //   },
-  //   "sjjdnsjnfjdsn":{
-  //     Time:19:32,
-  //     posture:"YES"/"NO"
-  //   }
-  // }
-  //
-  // showHistory()
-  // graphData = {
-  // 1933:5,
-  // 1934:10
-  // ,.......}
+  graphData = {};
+  b = data.val(); 
   Object.keys(b).forEach((keys) => {
     try {
       let key = b[keys].Time.split(" ")[0];
@@ -44,11 +25,12 @@ ref8.on("value", (data) => {
   });
   let gdata = Array();
   // console.log(graphData);
+  graphData = Object.keys(graphData).sort().reduce((a, c) => (a[c] = graphData[c], a), {});
+  console.log(graphData);
   Object.keys(graphData).forEach((t) => {
     gdata.push({ Time: t, count: graphData[t] });
   });
-  // console.log(gdata)
-  showHistory(gdata); //to plot graph
+  graphData = gdata //to plot graph
 });
 
 ref7.on("value", gotData);
@@ -155,12 +137,8 @@ function createGraph() {
     .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 }
 
-// data is taken from global variable called "graph data"
-// reference for this plot is taken from https://bl.ocks.org/d3noob/6f082f0e3b820b6bf68b78f2f7786084
-
-function showHistory(data) {
-  // var data=[{"Employee":"John Doe","Salary":58},{"Employee":"Jane Doe","Salary":81},{"Employee":"Mary Jane","Salary":39},{"Employee":"Debasis Das","Salary":80},{"Employee":"Nishant Singh","Salary":99}];
-
+function showHistory() {
+  
   var margin = { top: 20, right: 20, bottom: 30, left: 40 },
     width = 360 - margin.left - margin.right,
     height = 300 - margin.top - margin.bottom;
@@ -176,17 +154,17 @@ function showHistory(data) {
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-    data.forEach(function(d) {
+    graphData.forEach(function(d) {
       d.sales = +d.sales;
     });
   
-    // Scale the range of the data in the domains
-    x.domain(data.map(function(d) { return d.Time; }));
-    y.domain([0, d3.max(data, function(d) { return d.count; })]);
+    // Scale the range of the graphData in the domains
+    x.domain(graphData.map(function(d) { return d.Time; }));
+    y.domain([0, d3.max(graphData, function(d) { return d.count; })]);
   
     // append the rectangles for the bar chart
     svg.selectAll(".bar")
-        .data(data)
+    .data(graphData)
       .enter().append("rect")
         .attr("class", "bar")
         .attr("x", function(d) { return x(d.Time); })
@@ -202,4 +180,13 @@ function showHistory(data) {
     // add the y Axis
     svg.append("g")
         .call(d3.axisLeft(y));
+
+    svg.append("text")
+        .attr("x", (width / 2))             
+        .attr("y", 0 - (margin.top / 2))
+        .attr("text-anchor", "middle")  
+        .style("font-size", "13px") 
+        .style("text-decoration", "underline")  
+        .text("Times sat in bad position during the day(24H)");
+
 }
