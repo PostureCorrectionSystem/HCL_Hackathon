@@ -154,7 +154,7 @@ function run() {
       console.log(snapshot.val(), currentAngle);
       if (Math.abs(currentAngle - threshold) > 10 || snapshot.val() == "NO") {
         var d = new Date();
-        var currentTime = d.getHours()+d.getMinutes()+" "+d.getDate()+"-"+(d.getMonth()+1)+"-"+d.getFullYear();
+        var currentTime = d.getHours().toString()+d.getMinutes().toString()+" "+d.getDate()+"-"+(d.getMonth()+1)+"-"+d.getFullYear();
         var Data1 = {
           Time: String(currentTime),
           Posture: "YES"
@@ -168,7 +168,7 @@ function run() {
         });
       } else {
         var d = new Date();
-        var currentTime = d.getHours()+d.getMinutes()+" "+d.getDate()+"-"+(d.getMonth()+1)+"-"+d.getFullYear();
+        var currentTime = d.getHours().toString()+d.getMinutes().toString()+" "+d.getDate()+"-"+(d.getMonth()+1)+"-"+d.getFullYear();
         var Data2 = {
           Time: String(currentTime),
           Posture: "NO"
