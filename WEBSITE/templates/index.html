@@ -1,18 +1,16 @@
-
 <!doctype html>
 <html lang="en">
 <head>
-    <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="icon" href="img/favicon.png" type="image/png">
+    <link rel="icon" href={{ url_for("static", filename="img/favicon.png")}} type="image/png">
     <title>Posture Correction System</title>
     <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="css/bootstrap.css">
+    <link rel="stylesheet" href={{ url_for("static", filename="css/bootstrap.css") }}>
     <!-- main css -->
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/responsive.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href={{ url_for("static", filename="css/style.css") }}>
+    <link rel="stylesheet" href={{ url_for("static", filename="css/responsive.css") }}>
+    <link rel="stylesheet" href= "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
 <body>
 
@@ -22,7 +20,7 @@
             <nav class="navbar navbar-expand-lg navbar-light">
                 <div class="container">
                     <!-- Brand and toggle get grouped for better mobile display -->
-                    <h1 style="color:whitesmoke;font-size: 40px"><a href ="index.html" style="color:whitesmoke">Posture Correction System</a></h1>
+                    <h1 style="color:whitesmoke;font-size: 40px"> <a href="/index" style="color:whitesmoke">Posture Correction System</a> </h1>
                     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="icon-bar"></span>
                         <span class="icon-bar"></span>
@@ -31,9 +29,10 @@
                     <!-- Collect the nav links, forms, and other content for toggling -->
                     <div class="collapse navbar-collapse offset" id="navbarSupportedContent">
                         <ul class="nav navbar-nav menu_nav ml-auto">
-                            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
-                            <li class="nav-item"><a class="nav-link" href="Dashboard.html">Dashboard</a></li>
-                            <li class="nav-item"><a class="nav-link" href="contact.html">Contact Us</a></li>
+                            <li class="nav-item"><a class="nav-link" href="/index">Home</a></li>
+                            <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+                            <li class="nav-item"><a class="nav-link" href="https://github.com/PostureCorrectionSystem/HCL_Hackathon">Github</a></li>                            
+                            <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
                         </ul>
                     </div>
                 </div>
@@ -51,8 +50,8 @@
                     <div class="col-lg-6 offset-lg-6 col-xl-5 offset-xl-7">
                         <div class="banner_content">
                             <h3>Posture Correction System</h3>
-                            <p style = 'font-size: 15px'>USE OUR SYSTEM BY PRESSING THE BUTTON BELOW   akrfoerfosergoishowergowergoergoesrgosergoerbger</p>
-                            <a class="banner_btn" href="Dashboard.html">Go to Dashboard<i class="ti-arrow-right"></i></a>
+                            <p style = 'font-size: 15px'>USE OUR SYSTEM BY PRESSING THE BUTTON BELOW </p>
+                            <a class="banner_btn" href="/dashboard">Go to Dashboard<i class="ti-arrow-right"></i></a>
                         </div>
                     </div>
 
@@ -94,7 +93,7 @@
                              <li> Together they provide a stimulus to the user to correct their posture when required.</li>
                         </ul>
                         <br>
-                        <a class="banner_btn" href="Contact.html">To know more, Contact us<i class="ti-arrow-right"></i></a>
+                        <a class="banner_btn" href="/contact">To know more, Contact us<i class="ti-arrow-right"></i></a>
                     </div>
                 </div>
             </div>
@@ -108,15 +107,14 @@
 
                 <div class="col-lg-3 col-sm-6 mb-4 mb-xl-0 single-footer-widget">
                     <h4>About Us</h4>
-                    <p>We provide an efficient<br>yet easy to use system<br>that improves your posture over time</p>
+                    <p>We provide an efficient<br>yet easy to use system<br>that improves your posture<br/>over time</p>
                 </div>
 
                 <div class="col-lg-3 col-sm-6 mb-4 mb-xl-0 single-footer-widget">
                     <h4>Contact Info</h4>
                     <div class="footer-address">
                         <p>Address : Pes University
-                            Bangalore,<br>Karnataka</p>
-                        <span>Phone : XXXXXXXXXX</span>
+                            <br>Bangalore, Karnataka</p>
                         <address>
                                E-Mail: <a href="mailto:work.krishna2001@gmail.com">work.krishna2001@gmail.com</a><br>
                             </address>
@@ -124,28 +122,23 @@
                 </div>
 
                 <div class="col-lg-3 col-sm-6 mb-4 mb-xl-0 single-footer-widget">
-                    <h4>Important Link</h4>
+                    <h4>Important Links</h4>
                     <ul>
-                        <li><a href="Dashboard.html">Dashboard</a></li>
-                        <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="/dashboard">Dashboard</a></li>
+                        <li><a href="https://github.com/PostureCorrectionSystem/HCL_Hackathon">Github</a></li>
+                        <li><a href="/contact">Contact Us</a></li>
                     </ul>
                 </div>
 
                 <div class="col-lg-3 col-md-8 mb-4 mb-xl-0 single-footer-widget">
                     <h4>Any Queries?</h4>
-                    <p>Reach out to us by either contacting us or by having a nice conversation with our chatbot</p>
+                    <p>Reach out to us by either contacting us or by mail or by phone</p>
                 </div>
 
             </div>
         </div>
-        <div class="footer-bottom row align-items-center text-center text-lg-left no-gutters" >
-            <div class="col-lg-6 col-md-12  text-center text-lg-right footer-social">
-                <a href="#"><i class="ti-facebook"></i></a>
-                <a href="#"><i class="ti-twitter-alt"></i></a>
-                <a href="#"><i class="ti-linkedin"></i></a>
-                <a href="#"><i class="ti-youtube"></i></a>
-            </div>
-        </div>
+        <br/> <br/><br/>
+        
     </div>
 </footer>
 <!-- ================ End footer Area ================= -->
@@ -164,16 +157,21 @@
   o.src="https://botsify.com/web-bot/script/frame/"+e+"/botsify.js";	n=document.getElementsByTagName("script")[0];	n.parentNode.insertBefore(o,n); });
   }(); botsify.load('Dpcnbdddr39VSYEFk4gsLoJFDzdJ3Jotf7sdBm0l');
 </script>
-<script src="js/jquery-2.2.4.min.js"></script>
-<script src="js/popper.js"></script>
-<script src="js/bootstrap.min.js"></script>
-<script src="js/jquery.ajaxchimp.min.js"></script>
-<script src="js/waypoints.min.js"></script>
-<script src="js/mail-script.js"></script>
-<script src="js/contact.js"></script>
-<script src="js/jquery.form.js"></script>
-<script src="js/jquery.validate.min.js"></script>
-<script src="js/mail-script.js"></script>
-<script src="js/theme.js"></script>
+{% assets "main_js" %}
+<script>type="text/javascript" src"{{ ASSET_URL }}"</script>
+{% endassets %}
+<!--
+<script src="{{ url_for("static", filename="js/jquery-2.2.4.min.js") }}></script>
+<script src="{{ url_for("static", filename="js/popper.js") }}></script>
+<script src="{{ url_for("static", filename="js/bootstrap.min.js") }}></script>
+<script src="{{ url_for("static", filename="js/jquery.ajaxchimp.min.js") }}></script>
+<script src="{{ url_for("static", filename="js/waypoints.min.js") }}></script>
+<script src="{{ url_for("static", filename="js/mail-script.js") }}></script>
+<script src="{{ url_for("static", filename="js/contact.js") }}></script>
+<script src="{{ url_for("static", filename="js/jquery.form.js") }}></script>
+<script src="{{ url_for("static", filename="js/jquery.validate.min.js") }}></script>
+<script src="{{ url_for("static", filename="js/mail-script.js") }}></script>
+<script src="{{ url_for("static", filename="js/theme.js") }}></script>
+-->
 </body>
 </html>
