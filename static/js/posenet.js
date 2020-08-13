@@ -182,6 +182,6 @@ function run() {
 }
 
 function Stop() {
-  poseNet.removeEventListener("on");
+  poseNet.on("pose",()=>{}) 
   clearInterval(mainInterval);
 }

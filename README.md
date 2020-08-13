@@ -1,19 +1,27 @@
-# HCL_Hackathon
-#BetterHealth Hackathon By HCL
 
-Testing Posenet
+# BetterHealth Hackathon By HCL
 
-git clone on your system
+### Running it locally
 
-cd HCL_Hackathon/WEBSITE
+```bash
+git clone https://github.com/PostureCorrectionSystem/HCL_Hackathon.git
+```
+
+```bash
+pip3 install -r requirements.txt
+```
+
+```bash
 export FLASK_APP=app.py
 flask run
+```
 
-Go to browser on your 127.0.0.1/5000/dashboard
-Allow permissions to send notifications
 
-Click on Calibrate and Run Program
+*  Go to browser on your 127.0.0.1/5000/dashboard
+* Allow permissions to use camera and send notifications 
+
+* Click on Calibrate and Run Program
 When you shift positions, notifications shall pop up
 
-CLick on ON/OFF to view data visualizations
+* Click on ON/OFF to view data visualizations
 A bar chart and position chart is shown
